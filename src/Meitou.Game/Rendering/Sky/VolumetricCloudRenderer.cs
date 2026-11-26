@@ -64,6 +64,16 @@ public sealed class VolumetricCloudRenderer : IDisposable
     const long MirrorIdleReleaseMs = 5_000;
 
     /// <summary>
+    /// The clock the cloud shapes evolve by (real time; wrapped every <see cref="EvolvePeriod"/> seconds, where the drift is whole periods).
+    /// </summary>
+    readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+
+    /// <summary>
+    /// The seconds after which the shape's drift (0.0004 × (0.31, 1, -0.17) per second) has moved whole noise periods.
+    /// </summary>
+    const double EvolvePeriod = 250000;
+
+    /// <summary>
     /// The main view's history and the water reflection's.
     /// </summary>
     readonly ViewHistory _main = new(), _mirror = new();
@@ -89,7 +99,7 @@ public sealed class VolumetricCloudRenderer : IDisposable
     public SampledTexture ShadowMap => _shadowMap is null ? default : Sample(_shadowMap);
 
     /// <summary>
-    /// The slab's base height (the cloud height setting); the top follows at <see cref="VolumetricClouds.Thickness"/> above it.
+    /// The slab's base height (the cloud height setting); the march volume's top follows at <see cref="VolumetricClouds.LayerHeight"/> above it.
     /// </summary>
     public float Bottom { get; set; } = VolumetricClouds.Bottom;
 
@@ -156,8 +166,8 @@ public sealed class VolumetricCloudRenderer : IDisposable
         _mainTimer = new(gpu);
         _mirrorTimer = new(gpu);
         _shadowTimer = new(gpu);
-        _noise = SampledImage.Rgba8(gpu, VolumetricClouds.AtlasSize, VolumetricClouds.AtlasSize, VolumetricClouds.CreateAtlas(), false, false,
-            "cloud noise atlas");
+        _noise = SampledImage.Rgba8(gpu, VolumetricClouds.FineAtlasWidth, VolumetricClouds.FineAtlasHeight, VolumetricClouds.CreateFineAtlas(),
+            false, false, "cloud noise atlas");
 
         // The images are looked up by clip position (the sky, the history) and by world position (the shadow map): their rows run with vUv, as Vulkan's do.
         string vertex = gpu.RenderTargetsBottomUp ? PostProcessShaders.Vertex : PostProcessShaders.VertexRowsDown;
@@ -195,7 +205,8 @@ public sealed class VolumetricCloudRenderer : IDisposable
         p.Bind(p.Sampler("uNoise"), _noise.Sampled());
         p.Set(p.Uniform("uVolume"), coverage, wind.X, wind.Y, (_gpu.Frame.Number % 16) * 0.618033989f);
         p.Set(p.Uniform("uEye"), eye);
-        p.Set(p.Uniform("uCloudSlab"), Bottom, Bottom + VolumetricClouds.Thickness);
+        p.Set(p.Uniform("uCloudSlab"), Bottom, Bottom + VolumetricClouds.LayerHeight);
+        p.Set(p.Uniform("uCloudTime"), (float)(_clock.Elapsed.TotalSeconds % EvolvePeriod));
     }
 
     /// <summary>
@@ -277,7 +288,7 @@ public sealed class VolumetricCloudRenderer : IDisposable
         _march.Set(_march.Uniform("uLight"), light);
         _march.Set(_march.Uniform("uAmbient"), ambient);
         _march.ApplyGlobals();
-        _march.Set(_march.Uniform("uSteps"), _gpu.IsIntegrated ? 64 : 96);
+        _march.Set(_march.Uniform("uSteps"), _gpu.IsIntegrated ? 96 : 192);
         // The reach round a texel's centre: the bilinear lookup of the full-size sky reads a texel from up to one texel away, and the fog pass's
         // ray is the unjittered pixel centre (half a full-size pixel, a quarter texel, off); 1.5 texels with room to spare.
         _march.Set(_march.Uniform("uFogSkip"), fogSkip ? 1 : 0, FogSkipReach * 2f / w, FogSkipReach * 2f / ht, 0);

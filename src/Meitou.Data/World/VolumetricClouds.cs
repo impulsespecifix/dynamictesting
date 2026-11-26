@@ -15,6 +15,11 @@ public static class VolumetricClouds
     /// The range of the cloud height setting.
     /// </summary>
     public const float MinBottom = 4000, MaxBottom = 40000;
+
+    /// <summary>
+    /// The march volume's height above the base: the base layer (<see cref="Thickness"/>) and room for cumulus towers rising out of it.
+    /// </summary>
+    public const float LayerHeight = 50000;
     /// <summary>
     /// The world sizes over which the pattern, shape and detail noises repeat.
     /// </summary>
@@ -27,6 +32,12 @@ public static class VolumetricClouds
     /// Texels per side of the noise volume, of a padded atlas tile, and of the 8 × 8 tile atlas.
     /// </summary>
     public const int NoiseSize = 64, TileSize = NoiseSize + 2, AtlasSize = TileSize * 8;
+
+    /// <summary>
+    /// The fine atlas (<see cref="CreateFineAtlas"/>): texels per side of the noise volume, of a padded tile, tiles per row, and its size.
+    /// </summary>
+    public const int FineNoiseSize = 128, FineTileSize = FineNoiseSize + 2, FineAtlasColumns = 16,
+        FineAtlasWidth = FineTileSize * FineAtlasColumns, FineAtlasHeight = FineTileSize * (FineNoiseSize / FineAtlasColumns);
 
     /// <summary>
     /// Intersection with the horizontal cloud slab, including views inside or above it.
@@ -120,6 +131,77 @@ public static class VolumetricClouds
             int dst = (((z / 8 * TileSize + y) * AtlasSize) + z % 8 * TileSize + x) * 4;
             volume.AsSpan(src, 4).CopyTo(atlas.AsSpan(dst, 4));
         }
+        return atlas;
+    }
+
+    /// <summary>
+    /// A padded 16x8 slice atlas of a 128³ volume. R: Perlin-Worley shape (value-noise fbm remapped by Worley fbm, billowy), matched to the
+    /// coarse atlas' mean; G: four-octave Worley erosion; B: the broad weather noise.
+    /// </summary>
+    public static byte[] CreateFineAtlas()
+    {
+        const int n = FineNoiseSize;
+        var shape = new float[n * n * n];
+        var volume = new byte[n * n * n * 4];
+        Parallel.For(0, n, z => FineSlice(z, shape, volume));
+        NormaliseShape(shape, volume);
+        return PackFine(volume);
+    }
+
+    /// <summary>
+    /// One z slice of the fine volume: the raw shape into <paramref name="shape"/>, erosion and weather into <paramref name="volume"/>.
+    /// </summary>
+    static void FineSlice(int z, float[] shape, byte[] volume)
+    {
+        const int n = FineNoiseSize;
+        for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
+        {
+            var p = new Vector3(x, y, z) / n;
+            float fbm = 0.53f * Noise(p * 4, 4) + 0.24f * Noise(p * 8, 8) + 0.12f * Noise(p * 16, 16) + 0.07f * Noise(p * 32, 32)
+                + 0.04f * Noise(p * 64, 64);
+            fbm = Math.Clamp((fbm - 0.15f) / 0.7f, 0, 1);
+            float cells = 0.625f * Worley(p * 4, 4) + 0.25f * Worley(p * 8, 8) + 0.125f * Worley(p * 16, 16);
+            int i = (z * n + y) * n + x;
+            shape[i] = Math.Clamp((fbm - (cells - 1)) / (2 - cells), 0, 1);
+            float erosion = 0.55f * Worley(p * 8, 8) + 0.25f * Worley(p * 16, 16) + 0.13f * Worley(p * 32, 32) + 0.07f * Worley(p * 64, 64);
+            volume[i * 4 + 1] = (byte)(Math.Clamp(erosion, 0, 1) * 255);
+            volume[i * 4 + 2] = (byte)(Noise(p * 4, 4) * 255);
+            volume[i * 4 + 3] = 255;
+        }
+    }
+
+    /// <summary>
+    /// Writes the shape into R rescaled to mean 0.48 and spread 0.14, so the coverage thresholds tuned for the coarse atlas still fit.
+    /// </summary>
+    static void NormaliseShape(float[] shape, byte[] volume)
+    {
+        double sum = 0, squares = 0;
+        foreach (float v in shape)
+        {
+            sum += v;
+            squares += v * v;
+        }
+
+        double mean = sum / shape.Length, spread = Math.Sqrt(Math.Max(squares / shape.Length - mean * mean, 1e-12));
+        for (int i = 0; i < shape.Length; i++)
+            volume[i * 4] = (byte)(Math.Clamp((shape[i] - mean) / spread * 0.14 + 0.48, 0, 1) * 255);
+    }
+
+    /// <summary>
+    /// Packs the fine volume into padded tiles, 16 slices per row (each tile wraps one texel round its edges).
+    /// </summary>
+    static byte[] PackFine(byte[] volume)
+    {
+        const int n = FineNoiseSize, t = FineTileSize, c = FineAtlasColumns;
+        var atlas = new byte[FineAtlasWidth * FineAtlasHeight * 4];
+        for (int z = 0; z < n; z++) for (int y = 0; y < t; y++) for (int x = 0; x < t; x++)
+        {
+            int sx = (x - 1 + n) % n, sy = (y - 1 + n) % n;
+            int src = ((z * n + sy) * n + sx) * 4;
+            int dst = ((z / c * t + y) * FineAtlasWidth + z % c * t + x) * 4;
+            volume.AsSpan(src, 4).CopyTo(atlas.AsSpan(dst, 4));
+        }
+
         return atlas;
     }
 }
