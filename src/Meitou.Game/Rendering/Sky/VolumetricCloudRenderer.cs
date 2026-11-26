@@ -74,6 +74,26 @@ public sealed class VolumetricCloudRenderer : IDisposable
     const double EvolvePeriod = 250000;
 
     /// <summary>
+    /// The towers' lean per unit of height, and the share of the way the lean's direction turns towards the wind's each frame.
+    /// </summary>
+    const float ShearAmount = 0.27f, ShearTurn = 0.02f;
+
+    /// <summary>
+    /// The direction (unit, world x and z) the towers lean in: the way the clouds travel, smoothed; kept while the wind stands still.
+    /// </summary>
+    Vector2 _shearDirection = Vector2.Normalize(new Vector2(0.92f, 0.37f));
+
+    /// <summary>
+    /// The wind offset <see cref="_shearDirection"/> last saw (null: none yet).
+    /// </summary>
+    Vector2? _shearWind;
+
+    /// <summary>
+    /// The frame <see cref="_shearDirection"/> was last updated in (one update a frame, shared by both views and the shadow map).
+    /// </summary>
+    long _shearFrame = -1;
+
+    /// <summary>
     /// The main view's history and the water reflection's.
     /// </summary>
     readonly ViewHistory _main = new(), _mirror = new();
@@ -207,6 +227,28 @@ public sealed class VolumetricCloudRenderer : IDisposable
         p.Set(p.Uniform("uEye"), eye);
         p.Set(p.Uniform("uCloudSlab"), Bottom, Bottom + VolumetricClouds.LayerHeight);
         p.Set(p.Uniform("uCloudTime"), (float)(_clock.Elapsed.TotalSeconds % EvolvePeriod));
+        UpdateShear(wind);
+        p.Set(p.Uniform("uCloudShear"), _shearDirection.X * ShearAmount, _shearDirection.Y * ShearAmount);
+    }
+
+    /// <summary>
+    /// Turns the lean towards the way the clouds travel this frame. The pattern is read at the position plus the wind offset, so it moves against
+    /// the offset's change (unwrapped as the history's wind delta is); the tops lead downwind.
+    /// </summary>
+    void UpdateShear(Vector2 wind)
+    {
+        long frame = _gpu.Frame.Number;
+        if (frame == _shearFrame) return;
+        _shearFrame = frame;
+
+        var delta = wind - (_shearWind ?? wind);
+        _shearWind = wind;
+        delta -= new Vector2(MathF.Round(delta.X), MathF.Round(delta.Y));
+        if (delta.LengthSquared() < 1e-14f) return;
+
+        var travel = -Vector2.Normalize(delta);
+        var turned = Vector2.Lerp(_shearDirection, travel, ShearTurn);
+        if (turned.LengthSquared() > 1e-8f) _shearDirection = Vector2.Normalize(turned);
     }
 
     /// <summary>

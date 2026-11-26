@@ -22,11 +22,11 @@ public static class VolumetricCloudShaders
         uniform vec3 uEye;
         uniform vec2 uCloudSlab; // the march volume's base and top (the cloud height setting; the top leaves room for towers)
         uniform float uCloudTime; // seconds, for the shape's slow evolution
+        uniform vec2 uCloudShear; // the towers' downwind lean per unit of height (follows the wind's direction)
         const float CLOUD_EXTINCTION = {{F(Data.World.VolumetricClouds.Extinction)}};
         const float CLOUD_BASE_THICKNESS = {{F(Data.World.VolumetricClouds.Thickness)}};
         const float CLOUD_TOWER = {{F(Data.World.VolumetricClouds.LayerHeight - Data.World.VolumetricClouds.Thickness)}};
         const float PLANET_RADIUS = 63710000.0; // 6371 km in world units (a unit is about a decimetre)
-        const vec2 CLOUD_SHEAR = vec2(0.25, 0.1); // the towers' downwind lean per unit of height
         const vec3 CLOUD_EVOLVE = vec3(0.31, 1.0, -0.17) * 0.0004; // the shape noise's drift through its own volume per second
         float gColumnTop = CLOUD_BASE_THICKNESS; // the last density sample's column height (for the ambient)
         // The 128^3 atlas: 16 x 8 tiles of 130^2 (VolumetricClouds.CreateFineAtlas).
@@ -58,18 +58,21 @@ public static class VolumetricCloudShaders
             float tower = core * core * type * (1.0 - smoothstep(0.8, 1.0, uVolume.x));
             return CLOUD_BASE_THICKNESS * mix(1.0, 0.5, stratus) + CLOUD_TOWER * tower;
         }
-        // Erosion: wispy at the base turning to cell walls higher up; above the base layer the towers are carved into ~250 m lumps
-        // (subtracted: a remap leaves a saturated core at 1, which made smooth domes).
-        float cloudErode(float body, vec3 p, float h, vec3 evolve, bool detail)
+        // Erosion: wispy at the base turning to cell walls higher up; above the base layer the towers are carved into lumps
+        // (subtracted: a remap leaves a saturated core at 1, which made smooth domes). Taller columns get bigger, gentler lumps over a
+        // longer ramp, so their tops stay whole instead of breaking into specks.
+        float cloudErode(float body, vec3 p, float h, vec3 evolve, bool detail, float columnTop)
         {
             float e = detail ? cloudNoise(p / {{F(Data.World.VolumetricClouds.DetailPeriod)}} + evolve * 2.5).g : 0.5;
             float d = mix(e, 1.0 - e, clamp(h * 3.0, 0.0, 1.0));
             float amount = (1.0 - d) * mix(0.35, 0.25, h);
             float eroded = clamp((body - amount) / (1.0 - amount), 0.0, 1.0);
-            float above = clamp((p.y - uCloudSlab.x - 5000.0) / 5000.0, 0.0, 1.0);
+            float above = clamp((p.y - uCloudSlab.x - 5000.0) / max(5000.0, 0.3 * (columnTop - 5000.0)), 0.0, 1.0);
             if (!detail || above <= 0.0) return eroded;
-            float lumps = cloudNoise(p / {{F(Data.World.VolumetricClouds.DetailPeriod * 2)}} + 0.31 + evolve * 2.0).g;
-            return clamp(eroded - (1.0 - lumps) * 1.1 * above, 0.0, 1.0);
+            float tall = clamp((columnTop - 21000.0) / 29000.0, 0.0, 1.0);
+            float lumpPeriod = {{F(Data.World.VolumetricClouds.DetailPeriod)}} * mix(2.0, 5.0, tall);
+            float lumps = cloudNoise(p / lumpPeriod + 0.31 + evolve * 2.0).g;
+            return clamp(eroded - (1.0 - lumps) * mix(1.1, 0.6, tall) * above, 0.0, 1.0);
         }
         float cloudDensityAt(vec3 p, bool detail)
         {
@@ -87,14 +90,14 @@ public static class VolumetricCloudShaders
             cover = mix(cover, 1.0, smoothstep(0.75, 1.0, uVolume.x));
             // Where the weather leaves no cover the sky is clear and the shape is not read (docs/render-clouds.md).
             if (cover <= 0.0) return 0.0;
-            p.xz -= CLOUD_SHEAR * (p.y - uCloudSlab.x);
+            p.xz -= uCloudShear * (p.y - uCloudSlab.x);
             vec3 evolve = CLOUD_EVOLVE * uCloudTime;
             vec3 n = cloudNoise(p / {{F(Data.World.VolumetricClouds.ShapePeriod)}} + evolve);
             // Flat base, full to 40 % of the column, then a cauliflower dome.
             float profile = smoothstep(0.0, 0.06, h) * sqrt(clamp(1.0 - smoothstep(0.4, 1.0, h), 0.0, 1.0));
             float threshold = (1.0 - cover) * 0.55 + 0.08 + 0.2 * (1.0 - smoothstep(0.0, 0.08, cover));
             float body = clamp((n.r * profile - threshold) / 0.45, 0.0, 1.0);
-            return cloudErode(body, p, h, evolve, detail);
+            return cloudErode(body, p, h, evolve, detail, gColumnTop);
         }
         float cloudCurvedRoot(float alt, float a, float b, float height)
         {
@@ -118,26 +121,16 @@ public static class VolumetricCloudShaders
             return interval.y > interval.x;
         }
         float cloudDensity(vec3 p) { return cloudDensityAt(p, true); }
-        // The cloud shadow map: four even steps without erosion.
-        float cloudOpticalDepth(vec3 p, vec3 light)
-        {
-            vec2 span;
-            if (!cloudInterval(p, light, span)) return 0.0;
-            float stepSize = min(span.y, 60000.0) / 4.0;
-            float depth = 0.0;
-            for (int k = 0; k < 4; k++)
-                depth += cloudDensityAt(p + light * ((float(k) + 0.5) * stepSize), false) * stepSize;
-            return depth * CLOUD_EXTINCTION;
-        }
-        // The march's self-shadow: the same four samples, each segment four times the last (1:4:16:64), so near detail shades.
-        float cloudOpticalDepthNear(vec3 p, vec3 light)
+        // Optical depth towards the light: four samples, each segment four times the last (1:4:16:64), so near detail shades. The march's
+        // self-shadow reads it without erosion; the cloud shadow map with it, so the ground shadows show the eroded shapes.
+        float cloudOpticalDepthNear(vec3 p, vec3 light, bool detail)
         {
             vec2 span;
             if (!cloudInterval(p, light, span)) return 0.0;
             float len = min(span.y, 60000.0) / 85.0, start = 0.0, depth = 0.0;
             for (int k = 0; k < 4; k++)
             {
-                depth += cloudDensityAt(p + light * (start + 0.5 * len), false) * len;
+                depth += cloudDensityAt(p + light * (start + 0.5 * len), detail) * len;
                 start += len;
                 len *= 4.0;
             }
@@ -229,7 +222,7 @@ public static class VolumetricCloudShaders
                 float columnTop = gColumnTop;
                 if (density > 0.001)
                 {
-                    float optical = cloudOpticalDepthNear(p, uLight);
+                    float optical = cloudOpticalDepthNear(p, uLight, false);
                     float sunT = exp(-optical);
                     float altitude = cloudAlt(p);
                     vec3 key = cloudKeyAt(altitude * 1e-4);
@@ -271,7 +264,7 @@ public static class VolumetricCloudShaders
         void main()
         {
             vec3 p = vec3(uShadowOrigin.x + vUv.x * 320000.0, uCloudSlab.x, uShadowOrigin.y + vUv.y * 320000.0);
-            float tau = cloudOpticalDepth(p + vec3(0.0, 0.01, 0.0), uLight);
+            float tau = cloudOpticalDepthNear(p + vec3(0.0, 0.01, 0.0), uLight, true);
             fragColour = vec4(exp(-tau));
         }
         """;
