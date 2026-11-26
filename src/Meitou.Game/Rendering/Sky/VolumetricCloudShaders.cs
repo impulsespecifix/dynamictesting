@@ -27,9 +27,9 @@ public static class VolumetricCloudShaders
         const float CLOUD_BASE_THICKNESS = {{F(Data.World.VolumetricClouds.Thickness)}};
         const float CLOUD_TOWER = {{F(Data.World.VolumetricClouds.LayerHeight - Data.World.VolumetricClouds.Thickness)}};
         uniform float uCloudStorm;   // heavy rain, 0..1 (VolumetricClouds.HeavyRain): a closed deck, darker and thicker
-        // In full heavy rain: the light the deck scatters (sun, sky and silver lining), and its extinction, as shares of the fair-weather ones;
-        // the least optical depth the shadow map gives the deck (its thin spots still shade the land).
-        const float STORM_LIGHT = 0.4, STORM_EXTINCTION = 1.6, STORM_SHADOW_DEPTH = 4.0;
+        // In a full storm: the sun's and the sky's light on the deck and its extinction, as shares of the fair-weather ones (no silver lining and
+        // no sunset glow at all); the least optical depth the shadow map gives the deck (its thin spots still shade the land).
+        const float STORM_KEY = 0.1, STORM_AMBIENT = 0.35, STORM_EXTINCTION = 1.6, STORM_SHADOW_DEPTH = 4.0;
         const float CLOUD_PATTERN_PERIOD = {{F(Data.World.VolumetricClouds.PatternPeriod)}};
         const float CLOUD_MAX_DISTANCE = {{F(Data.World.VolumetricClouds.MaxDistance)}};
         const float PLANET_RADIUS = 63710000.0; // 6371 km in world units (a unit is about a decimetre)
@@ -62,7 +62,8 @@ public static class VolumetricCloudShaders
             float type = smoothstep(0.2, 0.8, w3.r);
             float stratus = (1.0 - type) * (1.0 - type);
             float tower = core * core * type * (1.0 - smoothstep(0.8, 1.0, uVolume.x));
-            return CLOUD_BASE_THICKNESS * mix(1.0, 0.5, stratus) + CLOUD_TOWER * tower;
+            float top = CLOUD_BASE_THICKNESS * mix(1.0, 0.5, stratus) + CLOUD_TOWER * tower;
+            return mix(top, CLOUD_BASE_THICKNESS, uCloudStorm);   // a storm is the base layer alone: no towers, no thin stratus
         }
         // Erosion: wispy at the base turning to cell walls higher up; above the base layer the towers are carved into lumps
         // (subtracted: a remap leaves a saturated core at 1, which made smooth domes). Taller columns get bigger, gentler lumps over a
@@ -103,7 +104,10 @@ public static class VolumetricCloudShaders
             float profile = smoothstep(0.0, 0.06, h) * sqrt(clamp(1.0 - smoothstep(0.4, 1.0, h), 0.0, 1.0));
             float threshold = (1.0 - cover) * 0.55 + 0.08 + 0.2 * (1.0 - smoothstep(0.0, 0.08, cover));
             float body = clamp((n.r * profile - threshold) / 0.45, 0.0, 1.0);
-            return cloudErode(body, p, h, evolve, detail, gColumnTop);
+            float eroded = cloudErode(body, p, h, evolve, detail, gColumnTop);
+            // A storm's deck is continuous: the shape kept as a faint texture over a solid floor, not eroded.
+            float deck = max(body, 0.6 * profile);
+            return mix(eroded, deck, uCloudStorm);
         }
         float cloudCurvedRoot(float alt, float a, float b, float height)
         {
@@ -186,8 +190,8 @@ public static class VolumetricCloudShaders
             float b = dot(p, s);
             float lowest = (b > 0.0 ? length(p) : sqrt(max(dot(p, p) - b * b, 0.0))) - 6371.0;
             vec3 through = exp(-vec3(5.8e-3, 13.5e-3, 33.1e-3) * 565.0 * exp(-max(lowest, 0.0) / 8.0)) * smoothstep(-1.0, 1.5, lowest);
-            vec3 glow = dot(uAtmoSunLight, vec3(0.2126, 0.7152, 0.0722)) * through * 0.6 * smoothstep(0.1, 0.0, s.y);
-            return max(uKey, glow);
+            vec3 glow = dot(uAtmoSunLight, vec3(0.2126, 0.7152, 0.0722)) * through * 0.6 * smoothstep(0.1, 0.0, s.y) * (1.0 - uCloudStorm);
+            return max(uKey, glow) * mix(1.0, STORM_KEY, uCloudStorm);
         }
         // Three multiple-scattering octaves (energy, extinction and eccentricity halve each time) and a faint deep-scatter floor.
         float cloudScatter(float optical, float cosine)
@@ -200,11 +204,11 @@ public static class VolumetricCloudShaders
             }
             return direct + 0.2 * exp(-optical * 0.1);
         }
-        // Tops see the open sky; undersides the sunlit dusty ground and the horizon.
+        // Tops see the open sky; undersides the sunlit dusty ground and the horizon. A storm dims both.
         vec3 cloudAmbient(float hc, vec3 key)
         {
             vec3 ground = key * max(uLight.y, 0.0) * vec3(0.30, 0.25, 0.19) + uAmbient * 0.35;
-            return mix(ground, uAmbient * 1.45, smoothstep(0.0, 1.0, hc));
+            return mix(ground, uAmbient * 1.45, smoothstep(0.0, 1.0, hc)) * mix(1.0, STORM_AMBIENT, uCloudStorm);
         }
         // Heavy rain's deck behind whatever the march left: from an eye under the base, every ray (also the ones that meet the base beyond the
         // march's reach, low over the horizon, or not at all) ends on a solid, dim underside, so no sky shows. Its distance is where the ray meets
@@ -217,7 +221,7 @@ public static class VolumetricCloudShaders
             float a = dot(ray.xz, ray.xz) / (2.0 * PLANET_RADIUS), b = ray.y;
             float hit = cloudCurvedRoot(alt, a, b, uCloudSlab.x);
             float distance = hit > 0.0 ? hit : CLOUD_MAX_DISTANCE * 1.2;
-            vec3 underside = cloudAmbient(0.0, uKey) * STORM_LIGHT;
+            vec3 underside = cloudAmbient(0.0, uKey * mix(1.0, STORM_KEY, uCloudStorm));
             float weight = trans * uCloudStorm;
             sum += weight * underside;
             depthMoment += weight * distance;
@@ -239,7 +243,7 @@ public static class VolumetricCloudShaders
             vec3 sum = vec3(0.0);
             float cosine = dot(ray, uLight);
             if (!layer) t = span.y;   // no layer on this ray: only the storm deck
-            float stormLight = mix(1.0, STORM_LIGHT, uCloudStorm), stormExtinction = mix(1.0, STORM_EXTINCTION, uCloudStorm);
+            float stormExtinction = mix(1.0, STORM_EXTINCTION, uCloudStorm);
             for (int k = 0; k < 256; k++)
             {
                 if (k >= uSteps || t >= span.y || trans < 0.01) break;
@@ -255,10 +259,10 @@ public static class VolumetricCloudShaders
                     float hc = clamp((altitude - uCloudSlab.x) / columnTop, 0.0, 1.0);
                     vec3 source = key * cloudScatter(optical, cosine) + cloudAmbient(hc, key);
                     source *= min(1.0, 8.0 / max(max(source.r, source.g), max(source.b, 1e-5)));
-                    // Silver lining: a narrow forward lobe on thin sunlit parts, after the ceiling of 8 (which clipped it), capped at 24.
-                    vec3 rim = key * (0.35 * hg(cosine, 0.85) * sunT * (1.0 - smoothstep(0.1, 0.6, density)));
+                    // Silver lining: a narrow forward lobe on thin sunlit parts, after the ceiling of 8 (which clipped it), capped at 24; none in a
+                    // storm.
+                    vec3 rim = key * (0.35 * hg(cosine, 0.85) * sunT * (1.0 - smoothstep(0.1, 0.6, density)) * (1.0 - uCloudStorm));
                     source += rim * min(1.0, 24.0 / max(max(rim.r, rim.g), max(rim.b, 1e-5)));
-                    source *= stormLight;
                     float alpha = 1.0 - exp(-density * ds * CLOUD_EXTINCTION * stormExtinction);
                     float weight = trans * alpha;
                     sum += weight * source; depthMoment += weight * t;

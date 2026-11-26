@@ -540,7 +540,7 @@ static partial class WorldFrame
             SkyStep("weather apply", ref skyStep);
         }
         gpu.Surfaces?.Apply(gpu.WeatherState);
-        gpu.Sky.Clouds.RainAmount = WeatherSurfaces.RainAmount(gpu.Surfaces?.Rain ?? 0);
+        gpu.Sky.Clouds.SetRain(WeatherSurfaces.RainAmount(gpu.Surfaces?.Rain ?? 0), gpu.WeatherState.Weather.RainIntensity);
         SkyStep("surfaces", ref skyStep);
     }
 

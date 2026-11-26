@@ -141,6 +141,17 @@ public sealed unsafe class SkyRenderer : IDisposable
     Vector3 _builtTint;
 
     /// <summary>
+    /// The storm (<see cref="SkyClouds.Storm"/>, with the Meitou clouds) the physical state was last built with.
+    /// </summary>
+    float _builtStorm;
+
+    /// <summary>
+    /// What is left of the world's sun light, and of its ambient, under a full storm (<see cref="SkyClouds.Storm"/>; the cloud shadow map darkens
+    /// the sun further where it reaches).
+    /// </summary>
+    const float StormSunLight = 0.15f, StormAmbient = 0.5f;
+
+    /// <summary>
     /// A physical state was built (false after a simple one): the next physical prepare builds again.
     /// </summary>
     bool _builtPhysical;
@@ -1055,7 +1066,7 @@ public sealed unsafe class SkyRenderer : IDisposable
         // SkyX's sky does not depend on the eye's height (its camera is fixed); the light only changes with the sun and the weather.
         var planetshine = (Planetshine, PlanetshineStrength, PlanetAlbedo, NightAir, AmbientStrength, NightAmbientStrength);
         bool changed = !_builtPhysical || !ReferenceEquals(_builtWeather, Weather) || _builtTint != SkyColourMultiplier
-            || (sun - _builtSun).LengthSquared() > 1e-10f || _builtPlanetshine != planetshine;
+            || (sun - _builtSun).LengthSquared() > 1e-10f || _builtPlanetshine != planetshine || MathF.Abs(WorldStorm - _builtStorm) > 0.002f;
         if (changed) RebuildPhysical(sun, fogDistance);
         else
         {
@@ -1074,13 +1085,16 @@ public sealed unsafe class SkyRenderer : IDisposable
         _builtTint = SkyColourMultiplier;
         _builtPlanetshine = (Planetshine, PlanetshineStrength, PlanetAlbedo, NightAir, AmbientStrength, NightAmbientStrength);
         _builtPhysical = true;
+        _builtStorm = WorldStorm;
         var sunLight = KenshiLighting.SunLight(sun);
         var lightDir = KenshiLighting.LightDirection(sun);
         // The ambient stays the game's: its factor comes from the sun's own (clamped) direction, never the planet's, whose height of 12 degrees
-        // would raise the night ambient fivefold. The ambient sliders scale it.
-        float env = KenshiLighting.EnvironmentFactor(lightDir) * AmbientFor(sun.Y);
+        // would raise the night ambient fivefold. The ambient sliders scale it. Under a storm (Meitou) both dim.
+        float env = KenshiLighting.EnvironmentFactor(lightDir) * AmbientFor(sun.Y) * float.Lerp(1, StormAmbient, _builtStorm);
         float reference = Meitou.Data.World.Planetshine.Luminance(KenshiLighting.SunLight(Vector3.UnitY));
         var planet = SkyNightLight.ApplyPlanetshine(Planetshine, PlanetAlbedo, PlanetshineStrength, sun, lightDir, sunLight, reference);
+        float stormSun = float.Lerp(1, StormSunLight, _builtStorm);
+        planet = planet with { SunLight = planet.SunLight * stormSun, GlintColour = planet.GlintColour * stormSun };
         var night = SkyNightLight.NightAirAt(NightAir, PlanetAlbedo, PlanetshineStrength, sun, reference);
         var (cloudKeyDirection, cloudKey) = MeitouClouds.Key(sun, SkyPlanet.All[0].Towards, planet.CloudPlanet);
         var tint = Vector3.One;   // the game tints only the cloud light (zenithLight, below), never the skydome (docs/formats/sky.md)
@@ -1394,6 +1408,11 @@ public sealed unsafe class SkyRenderer : IDisposable
     /// The Meitou volumetric clouds (docs/render-clouds.md): the volume, its images and the frame's skip switches.
     /// </summary>
     public SkyClouds Clouds { get; }
+
+    /// <summary>
+    /// The storm the world's light is dimmed by: the clouds' (<see cref="SkyClouds.Storm"/>) with the Meitou clouds, none with the game's flat layer.
+    /// </summary>
+    float WorldStorm => LitClouds ? Clouds.Storm : 0;
 
     /// <summary>
     /// Whether the volume is drawn this frame: the Meitou clouds on the game's sky with a state, and clouds to show (or the warm-up).
