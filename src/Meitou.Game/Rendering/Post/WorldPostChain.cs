@@ -207,6 +207,12 @@ interface IWorldPostChain
     void ApplySsao();
 
     /// <summary>
+    /// Heavy rain's sheets over the scene, after <see cref="ApplySsao"/> and before the particles (null: none this frame; a chain without the
+    /// pass draws none).
+    /// </summary>
+    void RunRainSheets(Sky.RainSheetFrame? rain) { }
+
+    /// <summary>
     /// The render size in pixels of one world unit at distance 1; 0 disables the low-resolution particle split.
     /// </summary>
     float ParticlePixelsPerUnit(float projectionM22);

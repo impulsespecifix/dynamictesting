@@ -100,6 +100,7 @@ public sealed unsafe partial class PostProcess : IDisposable, IWorldPostChain
         _fogRate = new FogRateImage(this);
         _upscaleExposure = new UpscaleExposure(this);
         _lateParticles = new LateParticles(this);
+        _rainSheets = new RainSheets(this);
         _merged = new MergedKernels(this);
     }
 
@@ -121,6 +122,7 @@ public sealed unsafe partial class PostProcess : IDisposable, IWorldPostChain
         DisposeSceneLayers();
         DisposeReflections();
         _lateParticles.Dispose();
+        _rainSheets.Dispose();
         DisposeLateFogShadow();
         _merged.Dispose();
         _upscaleExposure.Dispose();
@@ -2261,6 +2263,27 @@ public sealed unsafe partial class PostProcess : IDisposable, IWorldPostChain
         f.P.ApplyGlobals();   // the atmosphere's and the fog volumes' uniforms, through the frame globals
         Draw(f.P, _sceneColour.Attachment, _sceneColour.Format, _width, _height, _width, _height, FogState);
         Stamp("fog");
+        CloseSegment();
+    }
+
+    #endregion
+
+    #region Rain sheets (Meitou)
+
+    /// <summary>
+    /// Heavy rain's sheets over the scene (<see cref="RainSheets"/>).
+    /// </summary>
+    readonly RainSheets _rainSheets;
+
+    /// <summary>
+    /// Draws heavy rain's sheets over the finished scene (<see cref="RainSheets"/>); nothing without a scene or without heavy rain.
+    /// </summary>
+    public void RunRainSheets(Sky.RainSheetFrame? rain)
+    {
+        if (rain is not { } r || !_haveScene) return;
+
+        _rainSheets.Run(r);
+        Stamp("rain sheets");
         CloseSegment();
     }
 

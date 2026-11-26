@@ -124,6 +124,22 @@ public sealed class VolumetricCloudRenderer : IDisposable
     public float Bottom { get; set; } = VolumetricClouds.Bottom;
 
     /// <summary>
+    /// How heavy the rain is (<see cref="VolumetricClouds.HeavyRain"/>): the march darkens and thickens the deck by it.
+    /// </summary>
+    public float Storm { get; set; }
+
+    /// <summary>
+    /// The main view's last march: its coverage, wind offset, key light, light direction and ambient, which the rain sheets read
+    /// (<see cref="SetRainSheetUniforms"/>).
+    /// </summary>
+    (float Coverage, Vector2 Wind, Vector3 Key, Vector3 Light, Vector3 Ambient) _lastMain;
+
+    /// <summary>
+    /// The frame of <see cref="_lastMain"/> (-10: none).
+    /// </summary>
+    long _lastMainFrame = -10;
+
+    /// <summary>
     /// Texels (half-size) round a texel's centre whose rays must all be hidden for the fog early-out to leave it out.
     /// </summary>
     public const float FogSkipReach = 1.5f;
@@ -331,6 +347,8 @@ public sealed class VolumetricCloudRenderer : IDisposable
         _march.Set(_march.Uniform("uAmbient"), ambient);
         _march.ApplyGlobals();
         _march.Set(_march.Uniform("uSteps"), _gpu.IsIntegrated ? 96 : 192);
+        _march.Set(_march.Uniform("uCloudStorm"), Storm);
+        if (!reflection) (_lastMain, _lastMainFrame) = ((coverage, wind, key, light, ambient), _gpu.Frame.Number);
         // The reach round a texel's centre: the bilinear lookup of the full-size sky reads a texel from up to one texel away, and the fog pass's
         // ray is the unjittered pixel centre (half a full-size pixel, a quarter texel, off); 1.5 texels with room to spare.
         _march.Set(_march.Uniform("uFogSkip"), fogSkip ? 1 : 0, FogSkipReach * 2f / w, FogSkipReach * 2f / ht, 0);
@@ -361,6 +379,25 @@ public sealed class VolumetricCloudRenderer : IDisposable
             (viewProjection, eye, key, light, ambient, forward, wind, coverage, Bottom, _gpu.Frame.Number);
         timer.End();
         return Sample(h.A!);
+    }
+
+    /// <summary>
+    /// Whether the main view was marched within the last two frames, so the rain sheets have its cover, wind and light.
+    /// </summary>
+    public bool MainMarchedRecently => _gpu.Frame.Number - _lastMainFrame <= 2;
+
+    /// <summary>
+    /// Sets what the rain sheets (<see cref="RainSheetShaders"/>) read of the clouds: the noise, the cover and wind of the main view's last march
+    /// round <paramref name="eye"/>, the slab, the lean, and that march's light (the rain's drift is the lean's direction).
+    /// </summary>
+    internal void SetRainSheetUniforms(LegacyProgram p, Vector3 eye)
+    {
+        var m = _lastMain;
+        Common(p, m.Coverage, m.Wind, eye);
+        p.Set(p.Uniform("uSheetKey"), m.Key);
+        p.Set(p.Uniform("uSheetLight"), m.Light);
+        p.Set(p.Uniform("uSheetAmbient"), m.Ambient);
+        p.Set(p.Uniform("uSheetWind"), _shearDirection.X, _shearDirection.Y);
     }
 
     /// <summary>

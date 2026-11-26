@@ -20,6 +20,16 @@ public static class VolumetricClouds
     /// The march volume's height above the base: the base layer (<see cref="Thickness"/>) and room for cumulus towers rising out of it.
     /// </summary>
     public const float LayerHeight = 50000;
+
+    /// <summary>
+    /// How heavy the rain is for the clouds, from the weather's rain amount (rain / 50, saturated): 0 below 0.4, 1 from 0.9, smooth between. It
+    /// closes the cover, darkens the deck and brings the rain sheets.
+    /// </summary>
+    public static float HeavyRain(float rainAmount)
+    {
+        float t = Math.Clamp((rainAmount - 0.4f) / 0.5f, 0, 1);
+        return t * t * (3 - 2 * t);
+    }
     /// <summary>
     /// The world sizes over which the pattern, shape and detail noises repeat.
     /// </summary>

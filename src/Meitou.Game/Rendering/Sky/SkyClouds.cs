@@ -11,6 +11,11 @@ namespace Meitou.Game.Rendering.Sky;
 readonly record struct CloudSlab(float Bottom, float Density, Vector2 Shift);
 
 /// <summary>
+/// This frame's heavy-rain sheets (<see cref="RainSheetShaders"/>): the cloud volume they hang from and their strength (0..1).
+/// </summary>
+public readonly record struct RainSheetFrame(VolumetricCloudRenderer Clouds, float Strength);
+
+/// <summary>
 /// The Meitou volumetric clouds of the sky (docs/render-clouds.md): the cloud volume with this frame's march image and shadow map, and the frame's
 /// skip switches and flags. <see cref="SkyRenderer"/> decides from its settings and this frame's state what runs; this class owns the volume and
 /// runs it.
@@ -53,6 +58,33 @@ public sealed class SkyClouds : IDisposable
     /// benchmark").
     /// </summary>
     public bool Warm { get; set; }
+
+    /// <summary>
+    /// The weather's rain amount at the camera (rain / 50, saturated; set by the frame): heavy rain closes the cover and darkens the deck
+    /// (<see cref="VolumetricClouds.HeavyRain"/>), and brings the rain sheets.
+    /// </summary>
+    public float RainAmount { get; set; }
+
+    /// <summary>
+    /// How heavy the rain is (0..1).
+    /// </summary>
+    float Heavy => VolumetricClouds.HeavyRain(RainAmount);
+
+    /// <summary>
+    /// The cover the volume is drawn with: the sky's density, closed towards full in heavy rain (the towers fade there: a flat deck).
+    /// </summary>
+    float Coverage(CloudSlab slab) => float.Lerp(slab.Density, 1, Heavy);
+
+    /// <summary>
+    /// This frame's rain sheets, or null: no volume, the main view not marched lately, or the rain not heavy.
+    /// </summary>
+    internal RainSheetFrame? RainSheets()
+    {
+        float heavy = Heavy;
+        if (_volume is null || heavy <= 0 || !_volume.MainMarchedRecently) return null;
+
+        return new RainSheetFrame(_volume, heavy);
+    }
 
     /// <summary>
     /// The fog early-out of the volumetric clouds (Meitou, docs/render-clouds.md "Fog early-out";
@@ -125,7 +157,7 @@ public sealed class SkyClouds : IDisposable
     {
         _volume ??= new VolumetricCloudRenderer(_gpu);
         _volume.Bottom = slab.Bottom;
-        _volume.RenderShadow(eye, slab.Density, slab.Shift, sun);
+        _volume.RenderShadow(eye, Coverage(slab), slab.Shift, sun);
         _volumeShadowsReady = true;
     }
 
@@ -161,11 +193,13 @@ public sealed class SkyClouds : IDisposable
     {
         _volume ??= new VolumetricCloudRenderer(_gpu);
         _volume.Bottom = slab.Bottom;
+        _volume.Storm = Heavy;
+        float coverage = Coverage(slab);
         var ambient = s.CloudAmbient;
-        float grey = MeitouClouds.AmbientGreyAt(slab.Density);
+        float grey = MeitouClouds.AmbientGreyAt(coverage);
         float luma = Vector3.Dot(ambient, new Vector3(0.2126f, 0.7152f, 0.0722f));
         ambient = Vector3.Lerp(ambient, new Vector3(luma), grey);
-        _volumeImage = _volume.Render(viewProjection, eye, width, height, slab.Density, slab.Shift,
+        _volumeImage = _volume.Render(viewProjection, eye, width, height, coverage, slab.Shift,
             s.CloudKey, s.CloudKeyDirection, ambient, reflection, CloudFogSkip && fogVolumes && !reflection);
     }
 

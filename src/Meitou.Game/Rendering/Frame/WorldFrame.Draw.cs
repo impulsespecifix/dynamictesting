@@ -540,6 +540,7 @@ static partial class WorldFrame
             SkyStep("weather apply", ref skyStep);
         }
         gpu.Surfaces?.Apply(gpu.WeatherState);
+        gpu.Sky.Clouds.RainAmount = WeatherSurfaces.RainAmount(gpu.Surfaces?.Rain ?? 0);
         SkyStep("surfaces", ref skyStep);
     }
 
@@ -1496,6 +1497,9 @@ static partial class WorldFrame
         // composite). Its own lap (the post stage's): unlapped, the occlusion's time went to the particles'.
         post.ApplySsao();
         StageClock.Lap(10, "occlusion");
+
+        // Heavy rain's sheets under the clouds, over the finished scene and before the particles (the near rain).
+        post.RunRainSheets(gpu.Sky.Clouds.RainSheets());
     }
 
     /// <summary>
