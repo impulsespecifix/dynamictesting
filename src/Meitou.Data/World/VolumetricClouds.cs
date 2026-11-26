@@ -22,12 +22,23 @@ public static class VolumetricClouds
     public const float LayerHeight = 50000;
 
     /// <summary>
-    /// How heavy the rain is for the clouds, from the weather's rain amount (rain / 50, saturated): 0 below 0.4, 1 from 0.9, smooth between. It
-    /// closes the cover, darkens the deck and brings the rain sheets.
+    /// How heavy the rain is for the clouds, from the weather's rain amount (rain / 50, saturated): 0 below 0.15, 1 from 0.6 (a rain level of 7.5
+    /// to 30 of 100, so a scheduled rain at part strength still closes the sky), smooth between. It closes the cover and darkens the deck.
     /// </summary>
-    public static float HeavyRain(float rainAmount)
+    public static float HeavyRain(float rainAmount) => Ramp(rainAmount, 0.15f, 0.6f);
+
+    /// <summary>
+    /// How strong the rain sheets are, from the weather's rain amount: 0 below 0.15, 1 from 0.6, smooth between (their own ramp, tuned apart from
+    /// <see cref="HeavyRain"/>).
+    /// </summary>
+    public static float RainSheets(float rainAmount) => Ramp(rainAmount, 0.15f, 0.6f);
+
+    /// <summary>
+    /// 0 at or below <paramref name="low"/>, 1 at or above <paramref name="high"/>, smooth (smoothstep) between.
+    /// </summary>
+    static float Ramp(float x, float low, float high)
     {
-        float t = Math.Clamp((rainAmount - 0.4f) / 0.5f, 0, 1);
+        float t = Math.Clamp((x - low) / (high - low), 0, 1);
         return t * t * (3 - 2 * t);
     }
     /// <summary>

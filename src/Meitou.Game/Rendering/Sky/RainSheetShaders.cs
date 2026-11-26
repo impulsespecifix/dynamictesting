@@ -27,9 +27,10 @@ public static class RainSheetShaders
         uniform vec2 uSheetWind;                // the way the rain drifts (unit, world x and z)
         const float SHEET_NEAR = 3000.0, SHEET_FAR = 200000.0;   // 300 m (nearer rain is the particles') to 20 km
         const int SHEET_STEPS = 16;
-        const float SHEET_EXTINCTION = 0.00025;   // a sheet 5-10 km out hides about half of what lies behind it
-        const float SHEET_MAX_OPACITY = 0.85;
-        const vec3 SHEET_COLOUR = vec3(0.52, 0.56, 0.62);   // cool grey
+        const float SHEET_EXTINCTION = 0.0007;   // a sheet 3-8 km out hides 60-80 % of what lies behind it
+        const float SHEET_MAX_OPACITY = 0.9;
+        const vec3 SHEET_COLOUR = vec3(0.36, 0.39, 0.44);   // dark cool grey, below the haze behind it
+        const float SHEET_HAZE = 0.6;   // how much of the air's haze the sheets take (less than the land: they stand out of it)
 
         // The rain at a point under the base, and how much of the dense core is above it (for the shade).
         float sheetDensity(vec3 q, out float core)
@@ -45,19 +46,19 @@ public static class RainSheetShaders
             if (cover <= 0.0) return 0.0;
 
             core = smoothstep(0.62 - 0.45 * uVolume.x, 1.0 - 0.45 * uVolume.x, w3.b);
-            float tall = clamp(cloudColumnTop(w3) / CLOUD_BASE_THICKNESS, 0.5, 2.0) * 0.5;
 
-            // Slanted downwind: lower down the curtain has drifted further.
+            // Walls along the wind with clear gaps between them (a narrow edge), slanted downwind: lower down a curtain has drifted further.
             vec2 s = xz - uSheetWind * (base - alt) * 0.2;
             vec2 across = vec2(-uSheetWind.y, uSheetWind.x);
-            vec2 wall = vec2(dot(s, uSheetWind) / 160000.0, dot(s, across) / 40000.0);
-            float walls = smoothstep(0.42, 0.62, cloudNoise(vec3(wall.x, 0.71, wall.y)).r);
+            vec2 wall = vec2(dot(s, uSheetWind) / 120000.0, dot(s, across) / 30000.0);
+            float walls = smoothstep(0.50, 0.56, cloudNoise(vec3(wall.x, 0.71, wall.y)).r);
             if (walls <= 0.0) return 0.0;
 
-            float streak = cloudNoise(vec3(s.x / 2000.0, (alt + uCloudTime * 90.0) / 20000.0, s.y / 2000.0)).r;
+            // Vertical streaks, falling.
+            float streak = cloudNoise(vec3(s.x / 1500.0, (alt + uCloudTime * 90.0) / 20000.0, s.y / 1500.0)).r;
             float h = alt / base;
             float profile = mix(0.75, 1.0, h) * (1.0 - smoothstep(0.92, 1.0, h));
-            return cover * mix(0.3, 1.0, core) * tall * walls * mix(0.5, 1.0, smoothstep(0.3, 0.7, streak)) * profile;
+            return cover * mix(0.4, 1.0, core) * walls * mix(0.35, 1.0, smoothstep(0.45, 0.6, streak)) * profile;
         }
 
         // The pixel's ray and the distance to what it shows (the sky: SHEET_FAR).
@@ -80,7 +81,7 @@ public static class RainSheetShaders
 
             float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + uSheet.y);
             float ratio = dist / SHEET_NEAR, trans = 1.0, depthMoment = 0.0;
-            vec3 lit = SHEET_COLOUR * (uSheetAmbient + uSheetKey * 0.2 * max(uSheetLight.y, 0.0));
+            vec3 lit = SHEET_COLOUR * (uSheetAmbient * 0.8 + uSheetKey * 0.1 * max(uSheetLight.y, 0.0));
             vec3 sum = vec3(0.0);
             for (int k = 0; k < SHEET_STEPS; k++)
             {
@@ -92,7 +93,7 @@ public static class RainSheetShaders
 
                 float alpha = 1.0 - exp(-density * (t1 - t0) * SHEET_EXTINCTION * uSheet.x);
                 float weight = trans * alpha;
-                sum += weight * lit * mix(1.0, 0.55, core);   // darker under the thick cores
+                sum += weight * lit * mix(1.0, 0.5, core);   // darker under the thick cores
                 depthMoment += weight * t;
                 trans *= 1.0 - alpha;
             }
@@ -105,10 +106,11 @@ public static class RainSheetShaders
                 alpha = SHEET_MAX_OPACITY;
             }
 
-            // The air between the eye and the sheets, as the scene behind them has it.
+            // The air between the eye and the sheets, a share of what the land behind them has (so they stay darker than the haze).
             vec3 hazeMul, hazeAdd;
             atmoApplyCoefficients(uEye, uEye + dir * (depthMoment / max(1.0 - trans, 1e-5)), hazeMul, hazeAdd);
-            fragColour = vec4(sum * hazeMul + hazeAdd * alpha, 1.0 - alpha);
+            vec3 hazed = mix(sum, sum * hazeMul + hazeAdd * alpha, SHEET_HAZE);
+            fragColour = vec4(hazed, 1.0 - alpha);
         }
         """;
 }

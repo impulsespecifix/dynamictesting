@@ -11,7 +11,7 @@ namespace Meitou.Game.Rendering.Post;
 sealed class RainSheets(PostProcess post)
 {
     /// <summary>
-    /// The sheets' strength at full heavy rain: one knob for how much they hide (1: a sheet 5-10 km out hides about half of what is behind it).
+    /// The sheets' strength at full rain: one knob for how much they hide (1: a sheet 3-8 km out hides 60-80 % of what is behind it).
     /// </summary>
     public const float Strength = 1f;
 

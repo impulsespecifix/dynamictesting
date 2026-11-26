@@ -80,10 +80,10 @@ public sealed class SkyClouds : IDisposable
     /// </summary>
     internal RainSheetFrame? RainSheets()
     {
-        float heavy = Heavy;
-        if (_volume is null || heavy <= 0 || !_volume.MainMarchedRecently) return null;
+        float strength = VolumetricClouds.RainSheets(RainAmount);
+        if (_volume is null || strength <= 0 || !_volume.MainMarchedRecently) return null;
 
-        return new RainSheetFrame(_volume, heavy);
+        return new RainSheetFrame(_volume, strength);
     }
 
     /// <summary>
@@ -157,6 +157,7 @@ public sealed class SkyClouds : IDisposable
     {
         _volume ??= new VolumetricCloudRenderer(_gpu);
         _volume.Bottom = slab.Bottom;
+        _volume.Storm = Heavy;
         _volume.RenderShadow(eye, Coverage(slab), slab.Shift, sun);
         _volumeShadowsReady = true;
     }

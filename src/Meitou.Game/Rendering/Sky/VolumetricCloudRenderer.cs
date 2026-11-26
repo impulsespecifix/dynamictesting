@@ -243,6 +243,7 @@ public sealed class VolumetricCloudRenderer : IDisposable
         p.Set(p.Uniform("uEye"), eye);
         p.Set(p.Uniform("uCloudSlab"), Bottom, Bottom + VolumetricClouds.LayerHeight);
         p.Set(p.Uniform("uCloudTime"), (float)(_clock.Elapsed.TotalSeconds % EvolvePeriod));
+        p.Set(p.Uniform("uCloudStorm"), Storm);
         UpdateShear(wind);
         p.Set(p.Uniform("uCloudShear"), _shearDirection.X * ShearAmount, _shearDirection.Y * ShearAmount);
     }
@@ -347,7 +348,6 @@ public sealed class VolumetricCloudRenderer : IDisposable
         _march.Set(_march.Uniform("uAmbient"), ambient);
         _march.ApplyGlobals();
         _march.Set(_march.Uniform("uSteps"), _gpu.IsIntegrated ? 96 : 192);
-        _march.Set(_march.Uniform("uCloudStorm"), Storm);
         if (!reflection) (_lastMain, _lastMainFrame) = ((coverage, wind, key, light, ambient), _gpu.Frame.Number);
         // The reach round a texel's centre: the bilinear lookup of the full-size sky reads a texel from up to one texel away, and the fog pass's
         // ray is the unjittered pixel centre (half a full-size pixel, a quarter texel, off); 1.5 texels with room to spare.

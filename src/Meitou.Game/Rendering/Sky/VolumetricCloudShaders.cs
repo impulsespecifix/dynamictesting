@@ -26,7 +26,12 @@ public static class VolumetricCloudShaders
         const float CLOUD_EXTINCTION = {{F(Data.World.VolumetricClouds.Extinction)}};
         const float CLOUD_BASE_THICKNESS = {{F(Data.World.VolumetricClouds.Thickness)}};
         const float CLOUD_TOWER = {{F(Data.World.VolumetricClouds.LayerHeight - Data.World.VolumetricClouds.Thickness)}};
+        uniform float uCloudStorm;   // heavy rain, 0..1 (VolumetricClouds.HeavyRain): a closed deck, darker and thicker
+        // In full heavy rain: the light the deck scatters (sun, sky and silver lining), and its extinction, as shares of the fair-weather ones;
+        // the least optical depth the shadow map gives the deck (its thin spots still shade the land).
+        const float STORM_LIGHT = 0.4, STORM_EXTINCTION = 1.6, STORM_SHADOW_DEPTH = 4.0;
         const float CLOUD_PATTERN_PERIOD = {{F(Data.World.VolumetricClouds.PatternPeriod)}};
+        const float CLOUD_MAX_DISTANCE = {{F(Data.World.VolumetricClouds.MaxDistance)}};
         const float PLANET_RADIUS = 63710000.0; // 6371 km in world units (a unit is about a decimetre)
         const vec3 CLOUD_EVOLVE = vec3(0.31, 1.0, -0.17) * 0.0004; // the shape noise's drift through its own volume per second
         float gColumnTop = CLOUD_BASE_THICKNESS; // the last density sample's column height (for the ambient)
@@ -118,7 +123,7 @@ public static class VolumetricCloudShaders
             if (far < 0.0) return false;
             float near = alt >= uCloudSlab.x ? 0.0 : cloudCurvedRoot(alt, a, b, uCloudSlab.x);
             if (near < 0.0) return false;
-            interval = vec2(near, min(far, {{F(Data.World.VolumetricClouds.MaxDistance)}}));
+            interval = vec2(near, min(far, CLOUD_MAX_DISTANCE));
             return interval.y > interval.x;
         }
         float cloudDensity(vec3 p) { return cloudDensityAt(p, true); }
@@ -152,9 +157,6 @@ public static class VolumetricCloudShaders
         uniform vec3 uKey, uLight, uAmbient;
         uniform int uSteps;
         uniform vec4 uFogSkip;   // x: 1 to leave out what the placed fog volumes hide (the main view); yz: the reach in NDC checked round a texel
-        uniform float uCloudStorm;   // heavy rain, 0..1 (VolumetricClouds.HeavyRain): the deck darker and thicker
-        // In full heavy rain: the light the deck scatters (sun, sky and silver lining), and its extinction, as shares of the fair-weather ones.
-        const float STORM_LIGHT = 0.4, STORM_EXTINCTION = 1.6;
         // The fog volume pass (PostProcessShaders.FogVolumes) later blends every sky pixel as colour * trans + add, the sky at the far clip.
         // Its curve clamps, so deep in a block trans is exactly 0 and the sky's colour, clouds included, cannot show (docs/render-clouds.md
         // "Fog early-out"). The texel is left out only when trans is 0 along its own ray and along the four rays at the corners of the
@@ -204,6 +206,23 @@ public static class VolumetricCloudShaders
             vec3 ground = key * max(uLight.y, 0.0) * vec3(0.30, 0.25, 0.19) + uAmbient * 0.35;
             return mix(ground, uAmbient * 1.45, smoothstep(0.0, 1.0, hc));
         }
+        // Heavy rain's deck behind whatever the march left: from an eye under the base, every ray (also the ones that meet the base beyond the
+        // march's reach, low over the horizon, or not at all) ends on a solid, dim underside, so no sky shows. Its distance is where the ray meets
+        // the curved base (beyond the march's reach when it does not), for the aerial perspective.
+        void stormDeck(vec3 ray, inout vec3 sum, inout float trans, inout float depthMoment)
+        {
+            float alt = cloudAlt(uEye);
+            if (uCloudStorm <= 0.0 || trans <= 0.0 || alt >= uCloudSlab.x) return;
+
+            float a = dot(ray.xz, ray.xz) / (2.0 * PLANET_RADIUS), b = ray.y;
+            float hit = cloudCurvedRoot(alt, a, b, uCloudSlab.x);
+            float distance = hit > 0.0 ? hit : CLOUD_MAX_DISTANCE * 1.2;
+            vec3 underside = cloudAmbient(0.0, uKey) * STORM_LIGHT;
+            float weight = trans * uCloudStorm;
+            sum += weight * underside;
+            depthMoment += weight * distance;
+            trans *= 1.0 - uCloudStorm;
+        }
         void main()
         {
             vec2 ndc = vUv * 2.0 - 1.0;
@@ -211,13 +230,15 @@ public static class VolumetricCloudShaders
             vec3 ray = normalize(b.xyz / b.w - a.xyz / a.w);
             vec2 span;
             fragColour = vec4(0.0); fragDistance = 0.0;
-            if (!cloudInterval(uEye, ray, span)) return;
+            bool layer = cloudInterval(uEye, ray, span);
+            if (!layer && uCloudStorm <= 0.0) return;
             if (fogHidesSky(ndc)) return;
             float ds = min((span.y - span.x) / float(uSteps), 500.0);
             float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + uVolume.w);
             float t = span.x + ds * jitter, trans = 1.0, depthMoment = 0.0;
             vec3 sum = vec3(0.0);
             float cosine = dot(ray, uLight);
+            if (!layer) t = span.y;   // no layer on this ray: only the storm deck
             float stormLight = mix(1.0, STORM_LIGHT, uCloudStorm), stormExtinction = mix(1.0, STORM_EXTINCTION, uCloudStorm);
             for (int k = 0; k < 256; k++)
             {
@@ -245,6 +266,7 @@ public static class VolumetricCloudShaders
                 }
                 t += ds;
             }
+            stormDeck(ray, sum, trans, depthMoment);
             float alpha = 1.0 - trans;
             // Aerial perspective on the cloud itself, before compositing over sky and celestial bodies.
             float distance = depthMoment / max(alpha, 1e-5);
@@ -271,6 +293,8 @@ public static class VolumetricCloudShaders
         {
             vec3 p = vec3(uShadowOrigin.x + vUv.x * 320000.0, uCloudSlab.x, uShadowOrigin.y + vUv.y * 320000.0);
             float tau = cloudOpticalDepthNear(p + vec3(0.0, 0.01, 0.0), uLight, true);
+            // Heavy rain's deck: as thick as the march draws it, and no thin spot lets the sun through.
+            tau = max(tau * mix(1.0, STORM_EXTINCTION, uCloudStorm), uCloudStorm * STORM_SHADOW_DEPTH);
             fragColour = vec4(exp(-tau));
         }
         """;
