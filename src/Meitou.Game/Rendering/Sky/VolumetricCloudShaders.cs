@@ -26,6 +26,7 @@ public static class VolumetricCloudShaders
         const float CLOUD_EXTINCTION = {{F(Data.World.VolumetricClouds.Extinction)}};
         const float CLOUD_BASE_THICKNESS = {{F(Data.World.VolumetricClouds.Thickness)}};
         const float CLOUD_TOWER = {{F(Data.World.VolumetricClouds.LayerHeight - Data.World.VolumetricClouds.Thickness)}};
+        const float CLOUD_PATTERN_PERIOD = {{F(Data.World.VolumetricClouds.PatternPeriod)}};
         const float PLANET_RADIUS = 63710000.0; // 6371 km in world units (a unit is about a decimetre)
         const vec3 CLOUD_EVOLVE = vec3(0.31, 1.0, -0.17) * 0.0004; // the shape noise's drift through its own volume per second
         float gColumnTop = CLOUD_BASE_THICKNESS; // the last density sample's column height (for the ambient)
@@ -58,12 +59,20 @@ public static class VolumetricCloudShaders
             float tower = core * core * type * (1.0 - smoothstep(0.8, 1.0, uVolume.x));
             return CLOUD_BASE_THICKNESS * mix(1.0, 0.5, stratus) + CLOUD_TOWER * tower;
         }
+        // The detail noise read through a slow swirl (one coarse read, its channels as an offset), so edges tear into wisps; the swirl is
+        // strongest at the base.
+        float cloudSwirledDetail(vec3 p, float h, vec3 evolve)
+        {
+            vec3 swirl = cloudNoise(p / {{F(Data.World.VolumetricClouds.DetailPeriod * 3)}} + evolve).rgb * 2.0 - 1.0;
+            float reach = 0.35 * ((1.0 - clamp(h * 2.0, 0.0, 1.0)) * 0.5 + 0.5);
+            return cloudNoise(p / {{F(Data.World.VolumetricClouds.DetailPeriod)}} + evolve * 2.5 + swirl * reach).g;
+        }
         // Erosion: wispy at the base turning to cell walls higher up; above the base layer the towers are carved into lumps
         // (subtracted: a remap leaves a saturated core at 1, which made smooth domes). Taller columns get bigger, gentler lumps over a
         // longer ramp, so their tops stay whole instead of breaking into specks.
         float cloudErode(float body, vec3 p, float h, vec3 evolve, bool detail, float columnTop)
         {
-            float e = detail ? cloudNoise(p / {{F(Data.World.VolumetricClouds.DetailPeriod)}} + evolve * 2.5).g : 0.5;
+            float e = detail ? cloudSwirledDetail(p, h, evolve) : 0.5;
             float d = mix(e, 1.0 - e, clamp(h * 3.0, 0.0, 1.0));
             float amount = (1.0 - d) * mix(0.35, 0.25, h);
             float eroded = clamp((body - amount) / (1.0 - amount), 0.0, 1.0);
@@ -151,6 +160,8 @@ public static class VolumetricCloudShaders
         uniform vec3 uKey, uLight, uAmbient;
         uniform int uSteps;
         uniform vec4 uFogSkip;   // x: 1 to leave out what the placed fog volumes hide (the main view); yz: the reach in NDC checked round a texel
+        const float RAIN_REACH = 60000.0; // how far along a ray under the base the rain is gathered (6 km)
+        const float RAIN_STEPS = 8.0;
         // The fog volume pass (PostProcessShaders.FogVolumes) later blends every sky pixel as colour * trans + add, the sky at the far clip.
         // Its curve clamps, so deep in a block trans is exactly 0 and the sky's colour, clouds included, cannot show (docs/render-clouds.md
         // "Fog early-out"). The texel is left out only when trans is 0 along its own ray and along the four rays at the corners of the
@@ -194,6 +205,43 @@ public static class VolumetricCloudShaders
             }
             return direct + 0.2 * exp(-optical * 0.1);
         }
+        // The rain under the clouds (uWeatherWet.y, the weather's rain amount): curtains below the covered columns, heavier under the dense,
+        // tall cores, in vertical streaks falling at about 9 m/s; thinning near the ground and towards the base.
+        float rainDensityAt(vec3 p)
+        {
+            float alt = cloudAlt(p);
+            if (alt >= uCloudSlab.x) return 0.0;
+            vec2 xz = p.xz + uVolume.yz * CLOUD_PATTERN_PERIOD;
+            vec2 cell = xz / CLOUD_PATTERN_PERIOD;
+            vec3 w3 = cloudNoise(vec3(cell.x, 0.37, cell.y));
+            float cover = smoothstep(0.85 - 0.75 * uVolume.x, 1.05 - 0.75 * uVolume.x, w3.b);
+            if (cover <= 0.0) return 0.0;
+            float core = smoothstep(0.62 - 0.45 * uVolume.x, 1.0 - 0.45 * uVolume.x, w3.b);
+            float tall = clamp(cloudColumnTop(w3) / CLOUD_BASE_THICKNESS, 0.5, 2.0) * 0.5;
+            vec3 s = vec3(xz.x, (alt + uCloudTime * 90.0) * 0.125, xz.y) / 6000.0;
+            float streak = smoothstep(0.3, 0.7, cloudNoise(s).r);
+            float fade = smoothstep(0.0, 0.1, alt / uCloudSlab.x) * smoothstep(0.0, 0.15, 1.0 - alt / uCloudSlab.x);
+            return uWeatherWet.y * cover * mix(0.25, 1.0, core) * tall * streak * fade;
+        }
+        // Gathers the rain along the ray from the eye up to where it meets the cloud base (premultiplied colour, transmittance and the
+        // opacity-weighted distance, as the cloud march keeps them); dry weather and an eye above the base gather nothing.
+        void cloudRain(vec3 ray, float toBase, float jitter, vec3 key, inout vec3 sum, inout float trans, inout float depthMoment)
+        {
+            if (uWeatherWet.y <= 0.01 || toBase <= 0.0) return;
+            float reach = min(toBase, RAIN_REACH), ds = reach / RAIN_STEPS;
+            vec3 colour = vec3(0.55, 0.60, 0.70) * (uAmbient + key * 0.15 * max(uLight.y, 0.0));
+            for (float k = 0.0; k < RAIN_STEPS; k += 1.0)
+            {
+                float t = (k + jitter) * ds;
+                float density = rainDensityAt(uEye + ray * t);
+                if (density <= 0.001) continue;
+                float alpha = 1.0 - exp(-density * ds * CLOUD_EXTINCTION * 0.06);   // thin: soft curtains, not walls
+                float weight = trans * alpha;
+                sum += weight * colour;
+                depthMoment += weight * t;
+                trans *= 1.0 - alpha;
+            }
+        }
         // Tops see the open sky; undersides the sunlit dusty ground and the horizon.
         vec3 cloudAmbient(float hc, vec3 key)
         {
@@ -213,6 +261,8 @@ public static class VolumetricCloudShaders
             float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + uVolume.w);
             float t = span.x + ds * jitter, trans = 1.0, depthMoment = 0.0;
             vec3 sum = vec3(0.0);
+            // The rain lies in front of the layer: gathered first, the clouds are seen through it.
+            cloudRain(ray, span.x, jitter, uKey, sum, trans, depthMoment);
             float cosine = dot(ray, uLight);
             for (int k = 0; k < 256; k++)
             {
