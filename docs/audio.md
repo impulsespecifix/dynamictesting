@@ -276,8 +276,9 @@ posts `Weather_Wind_Stop` to stop it, which no bank has (the bank's event is `We
 once started (Observed, by the hashes; not heard in the game).
 
 Meitou (engine choice): the rain bed is posted on an object of its own (101) and scaled by the rain level, since the banks ignore
-`Rain_Intensity`: gain 0.35 at the least rain to 1 at rain 30 (smoothstep), ×1.25 under a full storm (`SkyClouds.Storm`), smoothed over 2 s;
-the `Camera_Zoom` fade stays on top (`AmbienceDirector.UpdateRainGain`).
+`Rain_Intensity`: gain 0.35 at the least rain to 1 at rain 30 (smoothstep), ×2.5 in a storm weather (`rain intensity` ≥ 60: `Heavy_Rain`,
+`misty rain`; not light rain), smoothed over 2 s; the `Camera_Zoom` fade stays on top, and the output's peak limiter turns loud peaks down
+(`AmbienceDirector.UpdateRainGain`).
 
 ### Volumes
 

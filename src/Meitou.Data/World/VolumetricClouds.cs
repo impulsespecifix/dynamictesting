@@ -22,6 +22,12 @@ public static class VolumetricClouds
     public const float LayerHeight = 50000;
 
     /// <summary>
+    /// A weather whose <c>rain intensity</c> is at least this is a storm at any strength (<c>Heavy_Rain</c> and <c>misty rain</c>: 100; light rain
+    /// is 40); the scheduler runs it at strengths down to about 0.2, which as a rain level alone would read as light rain.
+    /// </summary>
+    public const float StormWeatherRain = 60;
+
+    /// <summary>
     /// How heavy the rain is for the clouds, from the weather's rain amount (rain / 50, saturated): 0 below 0.15, 1 from 0.6 (a rain level of 7.5
     /// to 30 of 100, so a scheduled rain at part strength still closes the sky), smooth between. It closes the cover and darkens the deck.
     /// </summary>

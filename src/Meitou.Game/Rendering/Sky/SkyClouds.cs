@@ -60,12 +60,6 @@ public sealed class SkyClouds : IDisposable
     public bool Warm { get; set; }
 
     /// <summary>
-    /// A weather whose <c>rain intensity</c> is at least this is a storm at any strength (<c>Heavy_Rain</c> and <c>misty rain</c>: 100); the
-    /// scheduler runs it at strengths down to about 0.2, which as a rain level alone would leave the deck open.
-    /// </summary>
-    const float StormWeatherRain = 60;
-
-    /// <summary>
     /// The seconds the storm takes to come in or go fully (it follows its target at this rate, so a weather change does not jump).
     /// </summary>
     const float StormTurnSeconds = 20;
@@ -97,7 +91,7 @@ public sealed class SkyClouds : IDisposable
     public void SetRain(float rainAmount, float weatherRainIntensity)
     {
         RainAmount = rainAmount;
-        float target = weatherRainIntensity >= StormWeatherRain ? 1 : VolumetricClouds.HeavyRain(rainAmount);
+        float target = weatherRainIntensity >= VolumetricClouds.StormWeatherRain ? 1 : VolumetricClouds.HeavyRain(rainAmount);
         long now = System.Diagnostics.Stopwatch.GetTimestamp();
         float step = _stormTicks == 0 ? 1 : (float)System.Diagnostics.Stopwatch.GetElapsedTime(_stormTicks, now).TotalSeconds / StormTurnSeconds;
         _stormTicks = now;

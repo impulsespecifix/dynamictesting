@@ -202,17 +202,10 @@ public sealed class AudioSystem : IDisposable
     /// Feeds the ambience and the music the frame's state the way the game's camera update does (docs/audio.md): <paramref name="region"/> is the
     /// weather region under the camera's pivot (null: none), <paramref name="weather"/> the weather at the camera (null: clear),
     /// <paramref name="hour"/> the game hour against <paramref name="sunrise"/> and <paramref name="sunset"/>, <paramref name="eyeAboveGround"/> the
-    /// eye's height over the ground under it and <paramref name="realSeconds"/> the real time since the last call; no storm.
+    /// eye's height over the ground under it and <paramref name="realSeconds"/> the real time since the last call.
     /// </summary>
     public void Update(WeatherRegion? region, WeatherState? weather, double hour, double sunrise, double sunset, float eyeAboveGround,
-        double realSeconds) => Update(region, weather, hour, sunrise, sunset, eyeAboveGround, realSeconds, 0);
-
-    /// <summary>
-    /// As <see cref="Update(WeatherRegion?, WeatherState?, double, double, double, float, double)"/>, with <paramref name="storm"/> the sky's storm
-    /// (0..1, <c>SkyClouds.Storm</c>), which makes the rain bed louder.
-    /// </summary>
-    public void Update(WeatherRegion? region, WeatherState? weather, double hour, double sunrise, double sunset, float eyeAboveGround,
-        double realSeconds, float storm)
+        double realSeconds)
     {
         Ambience.Update(new AmbienceInput
         {
@@ -224,7 +217,7 @@ public sealed class AudioSystem : IDisposable
             Rain = weather?.Rain ?? 0,
             Wind = weather is null ? 0 : weather.Weather.WindIntensity * weather.WindSpeed * 0.01f,
             RealSeconds = realSeconds,
-            Storm = storm,
+            Storm = weather is not null && weather.Weather.RainIntensity >= VolumetricClouds.StormWeatherRain ? 1 : 0,
         });
         Music.Update(region?.Def.Music, Ambience.LoadPending);
         Ambience.UnloadStale(Music.LoadPending);

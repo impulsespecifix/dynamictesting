@@ -40,7 +40,8 @@ public readonly record struct AmbienceInput
     /// </summary>
     public double RealSeconds { get; init; }
     /// <summary>
-    /// The sky's storm (0..1, Meitou's <c>SkyClouds.Storm</c>): the rain bed is louder in it.
+    /// 1 in a storm weather (<c>rain intensity</c> at least <see cref="VolumetricClouds.StormWeatherRain"/>: <c>Heavy_Rain</c>, <c>misty rain</c>),
+    /// else 0: the rain bed is louder in it (Meitou).
     /// </summary>
     public float Storm { get; init; }
 }
@@ -84,9 +85,10 @@ public sealed class AmbienceDirector(WwisePlayer player)
 
     /// <summary>
     /// Meitou's rain bed level (the banks ignore <c>Rain_Intensity</c>, so the game's bed is as loud in a drizzle as in a storm): the gain at the
-    /// least rain, the rain amount (rain / 50) at which it is full, and the gain under a full storm.
+    /// least rain, the rain amount (rain / 50) at which it is full, and the gain in a storm weather (about +8 dB; other rain, light rain at full
+    /// strength included, gets none).
     /// </summary>
-    const float RainQuietGain = 0.35f, RainFullAmount = 0.6f, RainStormGain = 1.25f;
+    const float RainQuietGain = 0.35f, RainFullAmount = 0.6f, RainStormGain = 2.5f;
 
     /// <summary>
     /// The seconds the rain bed's level takes to follow (the time constant of its smoothing).
