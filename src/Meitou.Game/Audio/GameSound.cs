@@ -141,7 +141,7 @@ sealed class GameSound(GameHost host)
         Audio.Ambience.FixDelayedSuffix = host.Config.FixAmbienceSuffix;
         Audio.Ambience.FixWindStop = host.Config.FixWindStop;
         Audio.Update(weather?.World.RegionAt(target.X, target.Z), weather?.State, clock.HourOfDay, clock.Sunrise, clock.Sunset,
-            eye.Y - host.ActiveGround(eye.X, eye.Z), realSeconds);
+            eye.Y - host.ActiveGround(eye.X, eye.Z), realSeconds, host.Gpu?.Sky.Clouds.Storm ?? 0);
         World.Update(Audio, ears == eye ? target : ears, ears);
         Characters.Update(Audio, ears);
         Turrets.Update(Audio, ears, realSeconds);

@@ -39,6 +39,10 @@ public readonly record struct AmbienceInput
     /// Real seconds since the last update.
     /// </summary>
     public double RealSeconds { get; init; }
+    /// <summary>
+    /// The sky's storm (0..1, Meitou's <c>SkyClouds.Storm</c>): the rain bed is louder in it.
+    /// </summary>
+    public float Storm { get; init; }
 }
 
 /// <summary>
@@ -77,6 +81,22 @@ public sealed class AmbienceDirector(WwisePlayer player)
     /// Real seconds summed over the updates: the <c>Time_in_Game</c> game parameter is this as a 0..10 sawtooth over 10 minutes.
     /// </summary>
     double _clock;
+
+    /// <summary>
+    /// Meitou's rain bed level (the banks ignore <c>Rain_Intensity</c>, so the game's bed is as loud in a drizzle as in a storm): the gain at the
+    /// least rain, the rain amount (rain / 50) at which it is full, and the gain under a full storm.
+    /// </summary>
+    const float RainQuietGain = 0.35f, RainFullAmount = 0.6f, RainStormGain = 1.25f;
+
+    /// <summary>
+    /// The seconds the rain bed's level takes to follow (the time constant of its smoothing).
+    /// </summary>
+    const float RainGainSeconds = 2;
+
+    /// <summary>
+    /// The rain bed's level now (-1: none yet, the first update snaps).
+    /// </summary>
+    float _rainGain = -1;
 
     /// <summary>
     /// The ambience last entered (the low byte of the state); null before the first update or after <see cref="Silence"/>.
@@ -128,11 +148,12 @@ public sealed class AmbienceDirector(WwisePlayer player)
     public void Silence()
     {
         if (_state >= 0) player.Post($"Leave_{(Ambience)(_state & 0xFF)}", AudioSystem.MusicObject);
-        if (_raining) player.Post("Weather_Rain_End", AudioSystem.MusicObject);
+        if (_raining) player.Post("Weather_Rain_End", AudioSystem.RainObject);
         if (_windy) player.Post("Weather_Wind_End", AudioSystem.MusicObject);
         _state = -1;
         _day = null;
         _raining = _windy = false;
+        _rainGain = -1;
     }
 
     /// <summary>
@@ -173,8 +194,9 @@ public sealed class AmbienceDirector(WwisePlayer player)
         if (input.Rain > 0 != _raining)
         {
             _raining = input.Rain > 0;
-            player.Post(_raining ? "Weather_Rain_Start" : "Weather_Rain_End", AudioSystem.MusicObject);
+            player.Post(_raining ? "Weather_Rain_Start" : "Weather_Rain_End", AudioSystem.RainObject);
         }
+        UpdateRainGain(input);
         if (input.Wind > 0 != _windy)
         {
             _windy = input.Wind > 0;
@@ -185,6 +207,21 @@ public sealed class AmbienceDirector(WwisePlayer player)
         player.SetParameter("Intensity", input.Wind);
 
         if (_state >= 0) _lastCurrent[(Ambience)(_state & 0xFF)] = _clock;
+    }
+
+    /// <summary>
+    /// Meitou: the rain bed's level follows the rain, from <see cref="RainQuietGain"/> at the least rain to 1 at <see cref="RainFullAmount"/>
+    /// (smooth), times up to <see cref="RainStormGain"/> under the storm, smoothed over <see cref="RainGainSeconds"/>; the camera-height fade of the
+    /// bank stays on top.
+    /// </summary>
+    void UpdateRainGain(in AmbienceInput input)
+    {
+        float t = Math.Clamp(input.Rain / 50 / RainFullAmount, 0, 1);
+        float storm = Math.Clamp(input.Storm, 0, 1);
+        float target = float.Lerp(RainQuietGain, 1, t * t * (3 - 2 * t)) * float.Lerp(1, RainStormGain, storm);
+        float follow = 1 - MathF.Exp(-(float)input.RealSeconds / RainGainSeconds);
+        _rainGain = _rainGain < 0 ? target : _rainGain + (target - _rainGain) * follow;
+        player.SetObjectGain(AudioSystem.RainObject, _rainGain);
     }
 
     /// <summary>

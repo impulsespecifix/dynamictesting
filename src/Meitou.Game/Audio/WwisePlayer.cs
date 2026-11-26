@@ -1236,7 +1236,7 @@ public sealed partial class WwisePlayer : IDisposable
                 child = n;
             }
             // The voice's level before the output bus and the distance: what the sends start from.
-            float voiceGain = WwiseCurves.DbToGain(db) * linear * Fade * masterGain;
+            float voiceGain = WwiseCurves.DbToGain(db) * linear * Fade * masterGain * _player.ObjectGain(GameObject);
             // The output bus: the nearest node that overrides it, then the bus's parents (bus volume, the pause ducking, the user volume curves).
             float busGain = _player.BusGain(_outputBus, GameObject);
 

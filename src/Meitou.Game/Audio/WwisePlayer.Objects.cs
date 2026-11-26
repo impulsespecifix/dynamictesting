@@ -26,6 +26,11 @@ public sealed partial class WwisePlayer
     Listener _listener = Listener.Default;
 
     /// <summary>
+    /// The linear gains objects were given (<see cref="SetObjectGain"/>), the audio thread's; an object without one plays at 1.
+    /// </summary>
+    readonly Dictionary<ulong, float> _objectGains = [];
+
+    /// <summary>
     /// The object an action's sounds are made on while <see cref="Run"/> plays it (instances take it from their parent otherwise).
     /// </summary>
     ulong _postingObject;
@@ -116,6 +121,7 @@ public sealed partial class WwisePlayer
         {
             foreach (var r in _roots)
                 if (r.GameObject == id) r.End();
+            _objectGains.Remove(id);
             _volumeOffsets.ForgetObject(id);
             _pitchOffsets.ForgetObject(id);
             _lowPassOffsets.ForgetObject(id);
@@ -241,6 +247,17 @@ public sealed partial class WwisePlayer
                 if (r.GameObject == gameObject) r.StateChanged(group);
         });
     }
+
+    /// <summary>
+    /// Scales everything playing on the object by <paramref name="gain"/> (linear, on top of the banks' volumes; Meitou's own, Wwise has no such
+    /// call). Any thread; run at the next block.
+    /// </summary>
+    public void SetObjectGain(ulong gameObject, float gain) => _commands.Enqueue(() => _objectGains[gameObject] = gain);
+
+    /// <summary>
+    /// The object's gain (<see cref="SetObjectGain"/>; 1 when it has none). The audio thread's.
+    /// </summary>
+    float ObjectGain(ulong gameObject) => _objectGains.Count > 0 && _objectGains.TryGetValue(gameObject, out var gain) ? gain : 1;
 
     /// <summary>
     /// A game parameter's value for an object: its own if the object has one, else the global one.
