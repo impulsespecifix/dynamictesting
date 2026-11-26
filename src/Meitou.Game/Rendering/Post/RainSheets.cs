@@ -5,13 +5,14 @@ using Meitou.Game.Rendering.Sky;
 namespace Meitou.Game.Rendering.Post;
 
 /// <summary>
-/// Heavy rain's sheets over the finished scene (<see cref="RainSheetShaders"/>): after the fog volumes and the occlusion, before the particles,
-/// blended as the fog volumes are. Nothing is drawn below heavy rain.
+/// Heavy rain's sheets over the finished scene (<see cref="RainSheetShaders"/>): pale veils sweeping across the near distance and a rain haze
+/// beyond, after the fog volumes and the occlusion, before the particles, blended as the fog volumes are. Nothing is drawn below heavy rain.
 /// </summary>
 sealed class RainSheets(PostProcess post)
 {
     /// <summary>
-    /// The sheets' strength at full rain: one knob for how much they hide (1: a sheet 3-8 km out hides 60-80 % of what is behind it).
+    /// The sheets' strength at full rain: one knob for how much they hide (1: a dense gust ~200 m out hides about half of what is behind it,
+    /// and the rain haze takes half of the land at 2 km).
     /// </summary>
     public const float Strength = 1f;
 
