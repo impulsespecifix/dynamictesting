@@ -30,8 +30,9 @@ red and black rains) falls round the camera wherever it is in the region, so it 
 coverage is held at 0.7 at least (in over 10 s, out as long), which leaves about 80 % of the sky with cloud (cover > 0.05; 76 % above 0.4,
 **Observed**, a 200 × 200 grid of `CloudCover` samples). The storm (`SkyClouds.Storm`: the closed, darkened deck without towers) is for the
 storm weathers alone (`rain intensity` ≥ 60), in and out over 20 s; light rain keeps its cloud shapes and the fair-weather light. The rain then falls as the
-cloud over the camera allows: the mean cover of five samples (over the eye and 2500 units round it), 0 at 0.05 to 1 at 0.4 (smoothstep),
-smoothed over 3 s, scales the camera rain's emission (`EffectWorld.RainEmission`) and the rain's sound (`AmbienceInput.RainWithheld`).
+cloud over the camera and in view allows: the cover straight over the eye (weight 0.5) and the mean cover where nine rays from the eye meet
+the cloud base (10°, 25° and 50° above the horizon, on the view's heading and 35° either side; weight 1), 0 at 0.35 to 1 at 0.85
+(smoothstep: broken cloud lets little through, a sky in view with gaps reads wrong when it rains), smoothed over 3 s, scales the camera rain's emission (`EffectWorld.RainEmission`) and the rain's sound (`AmbienceInput.RainWithheld`).
 Without the volume (clouds off, the game's flat layer) the rain falls everywhere. The simulation's weather (wetness, rain collectors, farms)
 is unchanged.
 

@@ -1425,10 +1425,10 @@ public sealed unsafe class SkyRenderer : IDisposable
     bool CloudsCanShow => LitClouds && Physical && _state.Valid;
 
     /// <summary>
-    /// Once a frame after the weather (<see cref="SkyClouds.SetRain"/>): the rain under the cloud over <paramref name="eye"/>
-    /// (<see cref="SkyClouds.Rain"/>); with the volume off the rain falls everywhere, as the game's.
+    /// Once a frame after the weather (<see cref="SkyClouds.SetRain"/>): the rain under the cloud over <paramref name="eye"/> and in view along
+    /// <paramref name="forward"/> (<see cref="SkyClouds.Rain"/>); with the volume off the rain falls everywhere, as the game's.
     /// </summary>
-    public void UpdateCloudRain(Vector3 eye) => Clouds.UpdateRain(eye, Slab(), CloudsCanShow);
+    public void UpdateCloudRain(Vector3 eye, Vector3 forward) => Clouds.UpdateRain(eye, forward, Slab(), CloudsCanShow);
 
     /// <summary>
     /// Whether the land is shaded by the volume's shadow map this frame (else by the flat layer's, or not at all).
