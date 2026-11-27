@@ -39,10 +39,9 @@ sealed class RainSplashes(GameHost host)
 
     /// <summary>
     /// The eye's distance from its target past which the splashes grow, and how fast: their size times (distance / <see cref="GrowthFrom"/>) to
-    /// this power, so on screen they still shrink with the distance, only more slowly (1.76 times at a boom of 2000). Grown in full (power 1,
-    /// five times) they stayed the same on screen, too big far off; not grown at all, too small (owner).
+    /// this power. In full (1: five times at a boom of 2000) they keep one size on screen, which the owner chose after trying none and 0.35.
     /// </summary>
-    const float GrowthFrom = 400, GrowthPower = 0.35f;
+    const float GrowthFrom = 400, GrowthPower = 1;
 
     /// <summary>
     /// The disc's radius per unit of the eye's distance from its target. The disc is centred halfway between the target and the ground under the

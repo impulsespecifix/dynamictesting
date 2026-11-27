@@ -302,8 +302,8 @@ The optional row "Rain drops and puddles" (`WeatherSurfaces.WetWorld`, `uWetWorl
   `Footsplash` crown billboards, additive and unlit as the game's rain) recoloured a cool grey (0.55, 0.57, 0.6) by day and night (the rain's own grey and its night dimming left them unseen; smaller and dimmer
   ones were tried and the owner chose this look back), as a burst at 0.25 of its size on the terrain, 0.35 on the water where the
   water (`WorldWater.Height`) is above the terrain, or on what stands higher there: a building's floors and roofs (every floor,
-  `WorldObjectRenderer.FloorHeightAt`) or a map feature's top (`FeatureHeightBelow`); growing past an eye distance of 400 by (distance / 400) to the power 0.35 (1.76 times at 2000), so on screen they shrink with the distance
-  more slowly (grown in full they stayed one size on screen, not at all too small, owner); on the surface itself (lifted off it read wrong to the owner); none inside a building's hull
+  `WorldObjectRenderer.FloorHeightAt`) or a map feature's top (`FeatureHeightBelow`); growing past an eye distance of 400 by distance / 400 (5 times at 2000), so they keep one size on screen (the owner's choice after
+  trying no growth and the power 0.35); on the surface itself (lifted off it read wrong to the owner); none inside a building's hull
   (`InteriorAt` 2 units over the surface: a floor under a roof), the scene's depth hiding those under what the floor queries miss (**Observed**,
   test run in Heavy_Rain at a boom of 2000 over the Hub: splashes on the gate tower's platform and the walkways too); none with the eye over 6000 units from its target.
 - Footsteps: a character standing in a puddle (`GameHost.InPuddle`, `CharacterSounds.Puddle`) walks on the Water surface (`Surface_Material`), as under the water line. **Unknown**: not listened to.
