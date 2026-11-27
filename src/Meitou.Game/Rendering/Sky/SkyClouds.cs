@@ -130,7 +130,7 @@ public sealed class SkyClouds : IDisposable
     float StormCoverage(CloudSlab slab) => float.Lerp(slab.Density, 1, Heavy);
 
     /// <summary>
-    /// Once a frame after <see cref="SetRain"/>: the rain's floor and veil.
+    /// Once a frame after <see cref="SetRain"/>: the rain's coverage floor.
     /// </summary>
     internal void UpdateRain() => Rain.Update(RainAmount > 0);
 
@@ -217,7 +217,6 @@ public sealed class SkyClouds : IDisposable
         _volume ??= new VolumetricCloudRenderer(_gpu);
         _volume.Bottom = slab.Bottom;
         _volume.Storm = Heavy;
-        _volume.Veil = Rain.Veil;
         _volume.RenderShadow(eye, Coverage(slab), slab.Shift, sun);
         _volumeShadowsReady = true;
     }
@@ -255,7 +254,6 @@ public sealed class SkyClouds : IDisposable
         _volume ??= new VolumetricCloudRenderer(_gpu);
         _volume.Bottom = slab.Bottom;
         _volume.Storm = Heavy;
-        _volume.Veil = Rain.Veil;
         float coverage = Coverage(slab);
         var ambient = s.CloudAmbient;
         float grey = MeitouClouds.AmbientGreyAt(coverage);

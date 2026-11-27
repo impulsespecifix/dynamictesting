@@ -22,7 +22,6 @@ public static class VolumetricCloudShaders
         uniform vec3 uEye;
         uniform vec2 uCloudSlab; // the march volume's base and top (the cloud height setting; the top leaves room for towers)
         uniform float uCloudTime; // seconds, for the shape's slow evolution
-        uniform vec3 uRainVeil; // the rain's veil (CloudRain): strength 0..1, the least cover, the thinnest density share
         uniform vec2 uCloudShear; // the towers' downwind lean per unit of height (follows the wind's direction)
         const float CLOUD_EXTINCTION = {{F(Data.World.VolumetricClouds.Extinction)}};
         const float CLOUD_BASE_THICKNESS = {{F(Data.World.VolumetricClouds.Thickness)}};
@@ -96,9 +95,6 @@ public static class VolumetricCloudShaders
             if (h >= 1.0) return 0.0;
             float cover = smoothstep(0.85 - 0.75 * uVolume.x, 1.05 - 0.75 * uVolume.x, weather);
             cover = mix(cover, 1.0, smoothstep(0.75, 1.0, uVolume.x));
-            // The rain's veil (CloudRain): while it rains no sky is clear; where the weather leaves a gap the cloud is thinner instead.
-            float rainThin = mix(1.0, mix(uRainVeil.z, 1.0, cover), uRainVeil.x);
-            cover = max(cover, uRainVeil.y * uRainVeil.x);
             // Where the weather leaves no cover the sky is clear and the shape is not read (docs/render-clouds.md).
             if (cover <= 0.0) return 0.0;
             p.xz -= uCloudShear * (p.y - uCloudSlab.x);
@@ -111,7 +107,7 @@ public static class VolumetricCloudShaders
             float eroded = cloudErode(body, p, h, evolve, detail, gColumnTop);
             // A storm's deck is continuous: the shape kept as a faint texture over a solid floor, not eroded.
             float deck = max(body, 0.6 * profile);
-            return mix(eroded, deck, uCloudStorm) * rainThin;
+            return mix(eroded, deck, uCloudStorm);
         }
         float cloudCurvedRoot(float alt, float a, float b, float height)
         {
