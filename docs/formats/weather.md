@@ -300,9 +300,11 @@ The optional row "Rain drops and puddles" (`WeatherSurfaces.WetWorld`, `uWetWorl
   second at rain 100 in the least disc), at most 800 a second and 48 a frame; each the game's `Footsplashes01` (the foot splash's three
   `Footsplash` crown billboards, additive and unlit as the game's rain) recoloured the rain streaks' grey (0.38, the rain emitters' 0.32 plus a little for the thinner crown) times the sprites' ambient the rain's
   material takes (`ParticleRenderer.SpriteAmbient`, 0.1 to 1 by the sun's height), so they blend in with the rain, as a burst at 0.25 of its size on the terrain, 0.35 on the water where the
-  water (`WorldWater.Height`) is above the terrain, both times the eye's distance over 400 when farther (a drop's true size was under a pixel:
+  water (`WorldWater.Height`) is above the terrain, or on what stands higher there: a building's floors and roofs (every floor,
+  `WorldObjectRenderer.FloorHeightAt`) or a map feature's top (`FeatureHeightBelow`); both times the eye's distance over 400 when farther (a drop's true size was under a pixel:
   **Observed**, test runs in Heavy_Rain at a boom of 500 and 2000, splashes made and drawn, visible only so); none inside a building's hull
-  (`InteriorAt` 2 units up), the scene's depth hiding those under floors; none with the eye over 6000 units from its target.
+  (`InteriorAt` 2 units over the surface: a floor under a roof), the scene's depth hiding those under what the floor queries miss (**Observed**,
+  test run in Heavy_Rain at a boom of 2000 over the Hub: splashes on the gate tower's platform and the walkways too); none with the eye over 6000 units from its target.
 - Footsteps: a character standing in a puddle (`GameHost.InPuddle`, `CharacterSounds.Puddle`) walks on the Water surface (`Surface_Material`), as under the water line. **Unknown**: not listened to.
 - Range: the puddles fade out from 1200 to 3000 units from the eye (the game's wetness stays everywhere, as the original's). **Observed** (same run, zoomed out to 1500 and more): grey patches over the whole view before, none now.
 - Water line: the game's wet edge (`makeWet`, 2 units above the water) takes the ground's height from the relief's texture at the pixel where it is read (`reliefUnder`, within 6 units of the water), not the displaced mesh's. The water's shore field is read through a cubic B-spline (`WaterRenderer` `shoreField`): bilinear, the lines of equal distance turned at every 10-unit texel. Both for the owner's report of steps along a shore and on the waves; **not reproduced** (no sea shore in the saves at hand).

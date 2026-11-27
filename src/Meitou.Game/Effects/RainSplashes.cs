@@ -8,8 +8,8 @@ namespace Meitou.Game.Effects;
 /// <summary>
 /// Meitou's raindrop splashes (docs/formats/weather.md "Rain splashes"; testing only, engine choice): while it rains, drops landing round the
 /// camera's target throw up a small grey splash as bright as the rain's streaks, the game's own foot-splash system (<see cref="System"/>) at a quarter of its size, on the terrain or,
-/// where the water is higher, a little larger on the water. As many as the rain is heavy; none inside a building's hull, and the scene's depth
-/// hides those under floors. The game's camera stands up to 200 m (a boom of 2000) from its target, where a drop-sized splash is under a pixel,
+/// where the water is higher, a little larger on the water, or on a building's floors and roofs and on rocks where they are higher. As many as the
+/// rain is heavy; none inside a building's hull, and the scene's depth hides those under what the floor queries miss. The game's camera stands up to 200 m (a boom of 2000) from its target, where a drop-sized splash is under a pixel,
 /// so the disc and the splashes grow with that distance (<see cref="Spread"/>). Additive, in the rain streaks' grey and ambient. Display only.
 /// </summary>
 sealed class RainSplashes(GameHost host)
@@ -78,6 +78,11 @@ sealed class RainSplashes(GameHost host)
     /// The longest frame step the spawn clock takes, seconds.
     /// </summary>
     const float MaxStep = 0.1f;
+
+    /// <summary>
+    /// The height the feature ray starts from: above anything placed.
+    /// </summary>
+    const float FromAbove = 1e6f;
 
     /// <summary>
     /// The height above a point the building hull test is made at.
@@ -154,18 +159,47 @@ sealed class RainSplashes(GameHost host)
     }
 
     /// <summary>
-    /// One drop at a random place in the disc round <paramref name="target"/>: on the water where it is above the terrain, else on the terrain; none
-    /// inside a building or where the terrain is not loaded.
+    /// The highest surface the rain meets at (<paramref name="x"/>, <paramref name="z"/>): the terrain, the water above it, a building's floors and
+    /// roofs (every floor of it, <see cref="Rendering.Objects.WorldObjectRenderer.FloorHeightAt"/>) or a map feature's top (rocks and the like,
+    /// <see cref="Rendering.Objects.WorldObjectRenderer.FeatureHeightBelow"/>), whichever is highest, and whether it is the water; null where the
+    /// terrain is not loaded.
+    /// </summary>
+    (Vector3 At, bool Water)? Surface(float x, float z)
+    {
+        float ground = host.Gpu.Terrain.HeightAt(x, z);
+        if (!float.IsFinite(ground)) return null;
+
+        float top = Math.Max(ground, WorldWater.Height);
+        bool water = WorldWater.Height > ground;
+        if (host.ActiveObjects is { } objects)
+        {
+            float solid = Math.Max(objects.FloorHeightAt(x, z, AllFloors) ?? top, objects.FeatureHeightBelow(x, z, FromAbove) ?? top);
+            if (solid > top)
+            {
+                top = solid;
+                water = false;
+            }
+        }
+
+        return (new Vector3(x, top, z), water);
+    }
+
+    /// <summary>
+    /// Every floor of every building (the floors' filter of <see cref="Rendering.Objects.WorldObjectRenderer.FloorHeightAt"/>).
+    /// </summary>
+    static int AllFloors(string placementKey) => int.MaxValue;
+
+    /// <summary>
+    /// One drop at a random place in the disc round <paramref name="target"/>, on the highest surface there (<see cref="Surface"/>); none inside a
+    /// building (on a floor under its roof) or where the terrain is not loaded.
     /// </summary>
     void Splash(ParticleRenderer particles, Vector3 target, Disc disc)
     {
         float angle = Random.Shared.NextSingle() * MathF.Tau, reach = disc.Radius * MathF.Sqrt(Random.Shared.NextSingle());
         float x = target.X + (reach * MathF.Cos(angle)), z = target.Z + (reach * MathF.Sin(angle));
-        float ground = host.Gpu.Terrain.HeightAt(x, z);
-        if (!float.IsFinite(ground)) return;
+        if (Surface(x, z) is not { } surface) return;
 
-        bool water = WorldWater.Height > ground;
-        var at = new Vector3(x, water ? WorldWater.Height : ground, z);
+        var (at, water) = surface;
         if (host.ActiveObjects?.InteriorAt(at + new Vector3(0, HullTestHeight, 0)) is not null) return;
 
         float size = (water ? WaterSize : GroundSize) * disc.Scale, life = water ? WaterLife : GroundLife;
