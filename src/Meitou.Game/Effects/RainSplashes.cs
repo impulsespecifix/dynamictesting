@@ -7,7 +7,7 @@ namespace Meitou.Game.Effects;
 
 /// <summary>
 /// Meitou's raindrop splashes (docs/formats/weather.md "Rain splashes"; testing only, engine choice): while it rains, drops landing round the
-/// camera's target throw up a small grey splash as bright as the rain's streaks, the game's own foot-splash system (<see cref="System"/>) at a quarter of its size, on the terrain or,
+/// camera throw up a small grey splash as bright as the rain's streaks, the game's own foot-splash system (<see cref="System"/>) at a quarter of its size, on the terrain or,
 /// where the water is higher, a little larger on the water, or on a building's floors and roofs and on rocks where they are higher. As many as the
 /// rain is heavy; none inside a building's hull, and the scene's depth hides those under what the floor queries miss. The game's camera stands up to 200 m (a boom of 2000) from its target, where a drop-sized splash is under a pixel,
 /// so the disc and the splashes grow with that distance (<see cref="Spread"/>). Additive, in the rain streaks' grey and ambient. Display only.
@@ -26,10 +26,9 @@ sealed class RainSplashes(GameHost host)
     const float PerRain = 3;
 
     /// <summary>
-    /// The least radius round the camera's target the drops land in (1.5 m: at ground level, close round the character the camera looks at, as the
-    /// owner asked), and the most.
+    /// The least radius of the disc the drops land in (half a metre: the owner asked for none at all at ground level), and the most.
     /// </summary>
-    const float MinRadius = 15, MaxRadius = 2000;
+    const float MinRadius = 5, MaxRadius = 2000;
 
     /// <summary>
     /// The disc's radius (35 m) at which the rate is <see cref="PerRain"/>'s: a smaller disc (the camera close) gets fewer, by its radius (so the
@@ -38,7 +37,8 @@ sealed class RainSplashes(GameHost host)
     const float ReferenceRadius = 350;
 
     /// <summary>
-    /// The disc's radius per unit of the eye's distance from its target.
+    /// The disc's radius per unit of the eye's distance from its target. The disc is centred halfway between the target and the ground under the
+    /// eye, so it reaches from the camera's feet to its target: round the target alone, none fell close to the camera (owner).
     /// </summary>
     const float RadiusPerDistance = 0.5f;
 
@@ -145,7 +145,8 @@ sealed class RainSplashes(GameHost host)
         _owed += Math.Min(rain * PerRain * disc.Area, MaxPerSecond) * seconds;
         int count = Math.Min((int)_owed, MaxPerFrame);
         _owed -= (int)_owed;
-        for (int i = 0; i < count; i++) Splash(particles, target, disc);
+        var centre = Vector3.Lerp(target, host.Camera.Eye, 0.5f);
+        for (int i = 0; i < count; i++) Splash(particles, centre, disc);
     }
 
     /// <summary>
@@ -208,13 +209,13 @@ sealed class RainSplashes(GameHost host)
     static int AllFloors(string placementKey) => int.MaxValue;
 
     /// <summary>
-    /// One drop at a random place in the disc round <paramref name="target"/>, on the highest surface there (<see cref="Surface"/>); none inside a
+    /// One drop at a random place in the disc round <paramref name="centre"/>, on the highest surface there (<see cref="Surface"/>); none inside a
     /// building (on a floor under its roof) or where the terrain is not loaded.
     /// </summary>
-    void Splash(ParticleRenderer particles, Vector3 target, Disc disc)
+    void Splash(ParticleRenderer particles, Vector3 centre, Disc disc)
     {
         float angle = Random.Shared.NextSingle() * MathF.Tau, reach = disc.Radius * MathF.Sqrt(Random.Shared.NextSingle());
-        float x = target.X + (reach * MathF.Cos(angle)), z = target.Z + (reach * MathF.Sin(angle));
+        float x = centre.X + (reach * MathF.Cos(angle)), z = centre.Z + (reach * MathF.Sin(angle));
         if (Surface(x, z) is not { } surface) return;
 
         var (at, water) = surface;
