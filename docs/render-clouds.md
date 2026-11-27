@@ -23,6 +23,21 @@ four key-light samples, forward/back lobes and approximate multiple scattering. 
 and sky ambient feed HDR; source ceiling8, haze scale65000. Premultiplied colour/opacity composites
 over atmosphere/stars/planets before weather fog, with geometry drawn over the sky.
 
+## Rain under the cloud
+
+Meitou (engine choice, testing only; `CloudRain`): the game's camera rain (`CAMERA_RAIN`, `CAMERA_ACID_RAIN`: `rain_light`, `Kenshi_Heavy_Rain`, the
+red and black rains) falls round the camera wherever it is in the region, so it can fall from a gap. While the rain level is above 0 the
+coverage is held at 0.7 at least (in over 10 s, out as long), which leaves about 80 % of the sky with cloud (cover > 0.05; 76 % above 0.4,
+**Observed**, a 200 × 200 grid of `CloudCover` samples); a storm's cover (`SkyClouds.Storm`) still closes it all. The rain then falls as the
+cloud over the camera allows: the mean cover of five samples (over the eye and 2500 units round it), 0 at 0.05 to 1 at 0.4 (smoothstep),
+smoothed over 3 s, scales the camera rain's emission (`EffectWorld.RainEmission`) and the rain's sound (`AmbienceInput.RainWithheld`).
+Without the volume (clouds off, the game's flat layer) the rain falls everywhere. The simulation's weather (wetness, rain collectors, farms)
+is unchanged.
+
+`CloudCover` is the shader's cover on the CPU: the fine atlas' blue channel at y `VolumetricClouds.WeatherSlice` (0.37), as its bytes,
+trilinear, and the same curve; **Verified** against a shader-style sample of the atlas itself (20 000 random places, shifts and coverages,
+largest difference 0). The shader and `CloudCover.At` must change together.
+
 ## Temporal, fog and shadows
 
 Independent main/reflection histories reproject opacity-weighted distance and wind;3x3 clips

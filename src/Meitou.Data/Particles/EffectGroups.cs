@@ -157,13 +157,14 @@ public abstract class EffectGroup
 
     /// <summary>
     /// What the units' simulations read this frame: the wind, the effect's wind settings and the emission scale (the wind span times the
-    /// world's density).
+    /// world's density, and for a camera rain effect the world's rain emission).
     /// </summary>
     protected ParticleEnvironment Environment(WeatherEffectInput weather)
     {
         var e = Effect;
-        float windSpan = WindSpanScale(e, weather.Wind.Length()) * _world.Density;
-        return new ParticleEnvironment(weather.Wind, e.WindSpeedMultiplier, windSpan, e.WindAffected, e.WindDirectionEmission);
+        float rain = e.Type is EffectType.CameraRain or EffectType.CameraAcidRain ? _world.RainEmission : 1;
+        float emission = WindSpanScale(e, weather.Wind.Length()) * _world.Density * rain;
+        return new ParticleEnvironment(weather.Wind, e.WindSpeedMultiplier, emission, e.WindAffected, e.WindDirectionEmission);
     }
 
     /// <summary>

@@ -1417,7 +1417,18 @@ public sealed unsafe class SkyRenderer : IDisposable
     /// <summary>
     /// Whether the volume is drawn this frame: the Meitou clouds on the game's sky with a state, and clouds to show (or the warm-up).
     /// </summary>
-    bool VolumeEnabled => LitClouds && Physical && _state.Valid && (CloudDensity > 0 || Clouds.Warm);
+    bool VolumeEnabled => CloudsCanShow && (Clouds.Coverage(Slab()) > 0 || Clouds.Warm);
+
+    /// <summary>
+    /// Whether the volume can be drawn at all: the Meitou clouds on the game's sky with a state.
+    /// </summary>
+    bool CloudsCanShow => LitClouds && Physical && _state.Valid;
+
+    /// <summary>
+    /// Once a frame after the weather (<see cref="SkyClouds.SetRain"/>): the rain under the cloud over <paramref name="eye"/>
+    /// (<see cref="SkyClouds.Rain"/>); with the volume off the rain falls everywhere, as the game's.
+    /// </summary>
+    public void UpdateCloudRain(Vector3 eye) => Clouds.UpdateRain(eye, Slab(), CloudsCanShow);
 
     /// <summary>
     /// Whether the land is shaded by the volume's shadow map this frame (else by the flat layer's, or not at all).

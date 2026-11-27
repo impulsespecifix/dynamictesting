@@ -104,9 +104,27 @@ public sealed class SkyClouds : IDisposable
     float Heavy => _storm;
 
     /// <summary>
-    /// The cover the volume is drawn with: the sky's density, closed towards full in heavy rain (the towers fade there: a flat deck).
+    /// The rain under the cloud: the cover's floor while it rains and how much rain falls at the camera.
     /// </summary>
-    float Coverage(CloudSlab slab) => float.Lerp(slab.Density, 1, Heavy);
+    public CloudRain Rain { get; } = new();
+
+    /// <summary>
+    /// The cover the volume is drawn with: the sky's density, closed towards full in heavy rain (the towers fade there: a flat deck), and at least
+    /// the rain's floor (<see cref="CloudRain.Floor"/>).
+    /// </summary>
+    internal float Coverage(CloudSlab slab) => MathF.Max(StormCoverage(slab), Rain.Floor);
+
+    /// <summary>
+    /// The cover without the rain's floor: the sky's density, closed towards full in heavy rain.
+    /// </summary>
+    float StormCoverage(CloudSlab slab) => float.Lerp(slab.Density, 1, Heavy);
+
+    /// <summary>
+    /// Once a frame after <see cref="SetRain"/>: the rain's floor and the cloud over <paramref name="eye"/> (<paramref name="volume"/>: the volume is
+    /// drawn).
+    /// </summary>
+    internal void UpdateRain(Vector3 eye, CloudSlab slab, bool volume) =>
+        Rain.Update(RainAmount > 0, eye, StormCoverage(slab), slab.Shift, volume);
 
     /// <summary>
     /// This frame's rain sheets, or null: no volume, the main view not marched lately, or the rain not heavy.

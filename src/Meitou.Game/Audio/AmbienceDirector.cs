@@ -44,6 +44,11 @@ public readonly record struct AmbienceInput
     /// else 0: Meitou's recorded heavy rain replaces the rain bed in it (<see cref="HeavyRainRecording"/>).
     /// </summary>
     public float Storm { get; init; }
+    /// <summary>
+    /// Meitou's rain under the cloud: the share of the rain a gap in the clouds over the camera holds back (0..1; 0, the default: all of it falls),
+    /// which turns the rain's sound down with the particles (<c>CloudRain</c>, docs/render-clouds.md "Rain under the cloud").
+    /// </summary>
+    public float RainWithheld { get; init; }
 }
 
 /// <summary>
@@ -222,13 +227,13 @@ public sealed class AmbienceDirector(WwisePlayer player)
 
     /// <summary>
     /// Meitou: the rain's level follows the rain, from <see cref="RainQuietGain"/> at the least rain to 1 at <see cref="RainFullAmount"/> (smooth),
-    /// smoothed over <see cref="RainGainSeconds"/>. In a storm weather the recorded heavy rain takes over from the rain bed (an equal-power
+    /// less what a gap in the clouds holds back (<see cref="AmbienceInput.RainWithheld"/>), smoothed over <see cref="RainGainSeconds"/>. In a storm weather the recorded heavy rain takes over from the rain bed (an equal-power
     /// crossfade); both keep the bank's camera-height fade on top (the recording's held at a floor, <see cref="HeavyRainRecording.SetLevel"/>).
     /// </summary>
     void UpdateRainGain(in AmbienceInput input)
     {
         float t = Math.Clamp(input.Rain / 50 / RainFullAmount, 0, 1);
-        float target = float.Lerp(RainQuietGain, 1, t * t * (3 - 2 * t));
+        float target = float.Lerp(RainQuietGain, 1, t * t * (3 - 2 * t)) * (1 - Math.Clamp(input.RainWithheld, 0, 1));
         float follow = 1 - MathF.Exp(-(float)input.RealSeconds / RainGainSeconds);
         _rainGain = _rainGain < 0 ? target : _rainGain + (target - _rainGain) * follow;
 

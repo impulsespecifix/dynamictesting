@@ -88,11 +88,12 @@ public static class VolumetricCloudShaders
             if (p.y <= uCloudSlab.x || p.y >= uCloudSlab.y || uVolume.x <= 0.0) return 0.0;
             // The original wind texture shift corresponds to six times the ground wind at this altitude.
             p.xz += uVolume.yz * CLOUD_PATTERN_PERIOD;
-            vec3 w3 = cloudNoise(vec3(p.x / CLOUD_PATTERN_PERIOD, 0.37, p.z / CLOUD_PATTERN_PERIOD));
+            vec3 w3 = cloudNoise(vec3(p.x / CLOUD_PATTERN_PERIOD, {{F(Data.World.VolumetricClouds.WeatherSlice)}}, p.z / CLOUD_PATTERN_PERIOD));
             float weather = w3.b;
             gColumnTop = cloudColumnTop(w3);
             float h = (p.y - uCloudSlab.x) / gColumnTop;
             if (h >= 1.0) return 0.0;
+            // CloudCover.At is this on the CPU (the rain under the cloud): keep the two together.
             float cover = smoothstep(0.85 - 0.75 * uVolume.x, 1.05 - 0.75 * uVolume.x, weather);
             cover = mix(cover, 1.0, smoothstep(0.75, 1.0, uVolume.x));
             // Where the weather leaves no cover the sky is clear and the shape is not read (docs/render-clouds.md).
