@@ -276,9 +276,17 @@ posts `Weather_Wind_Stop` to stop it, which no bank has (the bank's event is `We
 once started (Observed, by the hashes; not heard in the game).
 
 Meitou (engine choice): the rain bed is posted on an object of its own (101) and scaled by the rain level, since the banks ignore
-`Rain_Intensity`: gain 0.35 at the least rain to 1 at rain 30 (smoothstep), ×2.5 in a storm weather (`rain intensity` ≥ 60: `Heavy_Rain`,
-`misty rain`; not light rain), smoothed over 2 s; the `Camera_Zoom` fade stays on top, and the output's peak limiter turns loud peaks down
-(`AmbienceDirector.UpdateRainGain`).
+`Rain_Intensity`: gain 0.35 at the least rain to 1 at rain 30 (smoothstep), smoothed over 2 s; the `Camera_Zoom` fade stays on top
+(`AmbienceDirector.UpdateRainGain`). The rain bed is the layer container `2F6A6941` in `SFX_Amb_Weather_Bank` (actor-mixer `33109D5F`), the
+wind bed `209ED745` (**Verified**, the bank's HIRC and the event name hashes).
+
+Recorded heavy rain (Meitou, testing only): in a storm weather (`rain intensity` ≥ 60: `Heavy_Rain`, `misty rain`; not light rain) a looping
+16-bit PCM WAV, `%LOCALAPPDATA%\Meitou\audio\heavy-rain.wav` (not shipped), replaces the rain bed with an equal-power crossfade over 2.5 s
+each way, at the same rain level × `HeavyRainRecordingGain` (0.05: the −1 dBFS-peak recording sits about 10 dB above the full rain bed;
+at 1 it would be about 36 dB above, measured offline at `Camera_Zoom` 1). It plays 2D on object 102 as a child of the rain bed's layer container, so it
+takes the bed's volume, `Camera_Zoom` curves, sends and the ambience bus (Ambient slider, pause ducking) (`HeavyRainRecording`). The bed's
+level also follows the wind's `Intensity` (**Observed**, `audio render`: −62 dBFS at 0, −51 at 50, −43 at 100), and so does the recording. Without the
+file the storms keep the rain bed (logged once).
 
 ### Volumes
 

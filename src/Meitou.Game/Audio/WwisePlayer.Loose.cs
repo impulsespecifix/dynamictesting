@@ -4,7 +4,8 @@ namespace Meitou.Game.Audio;
 
 /// <summary>
 /// Loose sound files (docs/modding.md "Sounds"): a code mod's 16-bit PCM WAV played as one Wwise sound made for it, on a game object, through the
-/// SFX bus when placed (so the SFX slider and the pause ducking take it, as the game's effects) or the master bus on the interface.
+/// SFX bus when placed (so the SFX slider and the pause ducking take it, as the game's effects) or the master bus on the interface; and Meitou's own
+/// looping recordings, played under a bank node (<see cref="PostLoop"/>).
 /// </summary>
 public sealed partial class WwisePlayer
 {
@@ -12,6 +13,11 @@ public sealed partial class WwisePlayer
     /// The SFX bus (<c>Init.bnk</c>, docs/audio.md "Pause and speed").
     /// </summary>
     public const uint SfxBus = 0x59927CD0;
+
+    /// <summary>
+    /// The PCM source plugin (<see cref="WwiseSource.PluginId"/>).
+    /// </summary>
+    const uint PcmPlugin = 0x00010001;
 
     /// <summary>
     /// The first media and object id of the loose sounds: above what bank hashes take in practice (Meitou's choice).
@@ -75,19 +81,54 @@ public sealed partial class WwisePlayer
         PostLoose(key, sound, gameObject, volumeDb, placed, 0);
 
     /// <summary>
+    /// Meitou's own looping recording (<see cref="HeavyRainRecording"/>): plays <paramref name="sound"/> (kept by <paramref name="key"/>) forever,
+    /// 2D, on <paramref name="gameObject"/>, as a child of the bank node <paramref name="parent"/>, whose chain gives it its volume, RTPC curves,
+    /// sends and output bus (the user volume and the pause ducking); tagged with <paramref name="playing"/> for <see cref="StopPlaying"/>. Any thread;
+    /// run at the next block.
+    /// </summary>
+    internal void PostLoop(string key, WwisePcm sound, ulong gameObject, uint parent, uint playing)
+    {
+        ObjectState(gameObject);
+        _commands.Enqueue(() => PlayLoop(key, sound, gameObject, parent, playing));
+    }
+
+    /// <summary>
     /// On the audio thread: files the samples once, then plays them as a new sound node on the object.
     /// </summary>
     void PlayLoose(string key, WwisePcm sound, ulong gameObject, float volumeDb, bool placed, uint playing)
     {
-        if (!_looseMedia.TryGetValue(key, out uint media))
-        {
-            media = _nextLoose++;
-            _looseMedia[key] = media;
-            _media[media] = new MediaClip(media, [], sound.Channels, sound.SampleRate, sound.Frames, sound.Samples);
-            _objects.TryAdd(LooseAttenuation.Id, LooseAttenuation);
-        }
+        var source = new WwiseSource(PcmPlugin, 0, LooseMedia(key, sound), 0, 0, 0, 0, []);
+        PlayLooseNode(new WwiseSound(_nextLoose++, source, LooseNode(volumeDb, placed)), gameObject, playing);
+    }
 
-        var node = new WwiseSound(_nextLoose++, new WwiseSource(0x00010001, 0, media, 0, 0, 0, 0, []), LooseNode(volumeDb, placed));
+    /// <summary>
+    /// On the audio thread: files the samples once, then plays them as a new looping sound node under <paramref name="parent"/> on the object.
+    /// </summary>
+    void PlayLoop(string key, WwisePcm sound, ulong gameObject, uint parent, uint playing)
+    {
+        var source = new WwiseSource(PcmPlugin, 0, LooseMedia(key, sound), 0, 0, 0, 0, []);
+        PlayLooseNode(new WwiseSound(_nextLoose++, source, LoopNode(parent)), gameObject, playing);
+    }
+
+    /// <summary>
+    /// The media id of a loose sound's samples, filed the first time <paramref name="key"/> is played.
+    /// </summary>
+    uint LooseMedia(string key, WwisePcm sound)
+    {
+        if (_looseMedia.TryGetValue(key, out uint media)) return media;
+
+        media = _nextLoose++;
+        _looseMedia[key] = media;
+        _media[media] = new MediaClip(media, [], sound.Channels, sound.SampleRate, sound.Frames, sound.Samples);
+        _objects.TryAdd(LooseAttenuation.Id, LooseAttenuation);
+        return media;
+    }
+
+    /// <summary>
+    /// Plays a loose sound's node as a root on <paramref name="gameObject"/>, tagged with <paramref name="playing"/>.
+    /// </summary>
+    void PlayLooseNode(WwiseSound node, ulong gameObject, uint playing)
+    {
         _postingObject = gameObject;
         _postingPlay = playing;
         try
@@ -102,6 +143,17 @@ public sealed partial class WwisePlayer
             _postingObject = 0;
             _postingPlay = 0;
         }
+    }
+
+    /// <summary>
+    /// A looping recording's node: loops forever, 2D, under <paramref name="parent"/> (its bus and everything else from the parent's chain).
+    /// </summary>
+    static WwiseNodeBase LoopNode(uint parent)
+    {
+        var values = new Dictionary<byte, uint> { [WwisePropertyId.Loop] = 0 };
+        var properties = new WwiseProperties(values, new Dictionary<byte, (float, float)>());
+        var positioning = new WwisePositioning(1, 0, 0, 0, 0, [], [], []);
+        return new WwiseNodeBase(false, [], 0, 0, 0, parent, 0, properties, positioning, 0, [], 0, 0, 0, 0, 0, [], []);
     }
 
     /// <summary>

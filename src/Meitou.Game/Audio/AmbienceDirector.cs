@@ -41,7 +41,7 @@ public readonly record struct AmbienceInput
     public double RealSeconds { get; init; }
     /// <summary>
     /// 1 in a storm weather (<c>rain intensity</c> at least <see cref="VolumetricClouds.StormWeatherRain"/>: <c>Heavy_Rain</c>, <c>misty rain</c>),
-    /// else 0: the rain bed is louder in it (Meitou).
+    /// else 0: Meitou's recorded heavy rain replaces the rain bed in it (<see cref="HeavyRainRecording"/>).
     /// </summary>
     public float Storm { get; init; }
 }
@@ -84,21 +84,31 @@ public sealed class AmbienceDirector(WwisePlayer player)
     double _clock;
 
     /// <summary>
-    /// Meitou's rain bed level (the banks ignore <c>Rain_Intensity</c>, so the game's bed is as loud in a drizzle as in a storm): the gain at the
-    /// least rain, the rain amount (rain / 50) at which it is full, and the gain in a storm weather (about +8 dB; other rain, light rain at full
-    /// strength included, gets none).
+    /// Meitou's rain level (the banks ignore <c>Rain_Intensity</c>, so the game's bed is as loud in a drizzle as in a storm): the gain at the
+    /// least rain and the rain amount (rain / 50) at which it is full.
     /// </summary>
-    const float RainQuietGain = 0.35f, RainFullAmount = 0.6f, RainStormGain = 2.5f;
+    const float RainQuietGain = 0.35f, RainFullAmount = 0.6f;
 
     /// <summary>
-    /// The seconds the rain bed's level takes to follow (the time constant of its smoothing).
+    /// The recorded heavy rain's gain on top of the rain level (<see cref="HeavyRainRecording"/>): the recording (normalised to −1 dBFS peak) plays
+    /// about 36 dB above the full rain bed at 1, so 0.05 puts it about 10 dB above (the storms' old ×2.5 boost was 8 dB).
+    /// </summary>
+    const float HeavyRainRecordingGain = 0.05f;
+
+    /// <summary>
+    /// The seconds the rain level takes to follow (the time constant of its smoothing).
     /// </summary>
     const float RainGainSeconds = 2;
 
     /// <summary>
-    /// The rain bed's level now (-1: none yet, the first update snaps).
+    /// The rain level now (-1: none yet, the first update snaps).
     /// </summary>
     float _rainGain = -1;
+
+    /// <summary>
+    /// The recorded heavy rain that replaces the rain bed in storm weathers.
+    /// </summary>
+    readonly HeavyRainRecording _heavyRain = new(player);
 
     /// <summary>
     /// The ambience last entered (the low byte of the state); null before the first update or after <see cref="Silence"/>.
@@ -117,6 +127,10 @@ public sealed class AmbienceDirector(WwisePlayer player)
     /// Whether the rain bed is playing.
     /// </summary>
     public bool Raining => _raining;
+    /// <summary>
+    /// Whether the recorded heavy rain is heard (a storm weather, or the crossfade back from one).
+    /// </summary>
+    public bool RecordedRain => _heavyRain.Playing;
     /// <summary>
     /// Whether the wind bed is playing.
     /// </summary>
@@ -156,6 +170,7 @@ public sealed class AmbienceDirector(WwisePlayer player)
         _day = null;
         _raining = _windy = false;
         _rainGain = -1;
+        _heavyRain.Silence();
     }
 
     /// <summary>
@@ -212,18 +227,20 @@ public sealed class AmbienceDirector(WwisePlayer player)
     }
 
     /// <summary>
-    /// Meitou: the rain bed's level follows the rain, from <see cref="RainQuietGain"/> at the least rain to 1 at <see cref="RainFullAmount"/>
-    /// (smooth), times up to <see cref="RainStormGain"/> under the storm, smoothed over <see cref="RainGainSeconds"/>; the camera-height fade of the
-    /// bank stays on top.
+    /// Meitou: the rain's level follows the rain, from <see cref="RainQuietGain"/> at the least rain to 1 at <see cref="RainFullAmount"/> (smooth),
+    /// smoothed over <see cref="RainGainSeconds"/>. In a storm weather the recorded heavy rain takes over from the rain bed (an equal-power
+    /// crossfade), at <see cref="HeavyRainRecordingGain"/>; both keep the bank's camera-height fade on top.
     /// </summary>
     void UpdateRainGain(in AmbienceInput input)
     {
         float t = Math.Clamp(input.Rain / 50 / RainFullAmount, 0, 1);
-        float storm = Math.Clamp(input.Storm, 0, 1);
-        float target = float.Lerp(RainQuietGain, 1, t * t * (3 - 2 * t)) * float.Lerp(1, RainStormGain, storm);
+        float target = float.Lerp(RainQuietGain, 1, t * t * (3 - 2 * t));
         float follow = 1 - MathF.Exp(-(float)input.RealSeconds / RainGainSeconds);
         _rainGain = _rainGain < 0 ? target : _rainGain + (target - _rainGain) * follow;
-        player.SetObjectGain(AudioSystem.RainObject, _rainGain);
+
+        _heavyRain.Update(_raining && input.Storm >= 0.5f, input.RealSeconds);
+        player.SetObjectGain(AudioSystem.RainObject, _rainGain * _heavyRain.BedLevel);
+        _heavyRain.SetGain(_rainGain * _heavyRain.RecordingLevel * HeavyRainRecordingGain);
     }
 
     /// <summary>

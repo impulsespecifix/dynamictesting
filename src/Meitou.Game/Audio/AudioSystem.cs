@@ -76,6 +76,11 @@ public sealed class AudioSystem : IDisposable
     public const ulong RainObject = 101;
 
     /// <summary>
+    /// Meitou's object for the recorded heavy rain that replaces the rain bed in storm weathers (<see cref="HeavyRainRecording"/>).
+    /// </summary>
+    public const ulong HeavyRainObject = 102;
+
+    /// <summary>
     /// The game object of the interface sounds (<c>RegisterGameObj(110, "GUI")</c>).
     /// </summary>
     public const ulong GuiObject = 110;
@@ -231,7 +236,10 @@ public sealed class AudioSystem : IDisposable
     {
         string music = MusicState();
         string biome = Ambience.Biome is { } heard ? $"{heard} {(Ambience.Night ? "night" : "day")}" : "no biome";
-        string flags = $"{(Ambience.Raining ? ", rain" : "")}{(Ambience.Windy ? ", wind" : "")}{(_paused ? ", paused" : "")}";
+        string rain = !Ambience.Raining ? ""
+            : Ambience.RecordedRain ? ", rain (recorded)"
+            : ", rain";
+        string flags = $"{rain}{(Ambience.Windy ? ", wind" : "")}{(_paused ? ", paused" : "")}";
         string capped = Player.Silenced > 0 ? $" ({Player.Silenced} capped)" : "";
         string musicHeard = Music.TitleScreen ? "main theme" : Music.Biome ?? "none";
         return $"{biome}{flags}: {Player.Stats.Voices} voices{capped}, {Player.Stats.Clips} clips loaded; " +
