@@ -32,9 +32,9 @@ public sealed class HeavyRainRecording(WwisePlayer player)
 
     /// <summary>
     /// The recording's gain when <see cref="GainVariable"/> is not set. The recording (−1 dBFS peak) at 1 plays about 36 dB above the rain bed with
-    /// no wind and 17 dB above it at full wind (the bed's layers follow the wind's <c>Intensity</c>, the recording does not); 0.5 is 6 dB under that.
+    /// no wind and 17 dB above it at full wind (the bed's layers follow the wind's <c>Intensity</c>, the recording does not); 0.4 is 8 dB under that.
     /// </summary>
-    const float DefaultGain = 0.5f;
+    const float DefaultGain = 0.4f;
 
     /// <summary>
     /// The environment variable that overrides <see cref="DefaultGain"/> (a float, invariant culture), for tuning without a build.
