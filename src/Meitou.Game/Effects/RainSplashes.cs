@@ -7,10 +7,11 @@ namespace Meitou.Game.Effects;
 
 /// <summary>
 /// Meitou's raindrop splashes (docs/formats/weather.md "Rain splashes"; testing only, engine choice): while it rains, drops landing round the
-/// camera throw up a small grey splash as bright as the rain's streaks, the game's own foot-splash system (<see cref="System"/>) at a quarter of its size, on the terrain or,
+/// camera throw up a small grey splash, the game's own foot-splash system (<see cref="System"/>) at an eighth of its size, on the terrain or,
 /// where the water is higher, a little larger on the water, or on a building's floors and roofs and on rocks where they are higher. As many as the
-/// rain is heavy; none inside a building's hull, and the scene's depth hides those under what the floor queries miss. The game's camera stands up to 200 m (a boom of 2000) from its target, where a drop-sized splash is under a pixel,
-/// so the disc and the splashes grow with that distance (<see cref="Spread"/>). Additive, in the rain streaks' grey and ambient. Display only.
+/// rain is heavy; none inside a building's hull, and the scene's depth hides those under what the floor queries miss. The disc they land in
+/// grows with the camera's distance from its target (<see cref="Spread"/>); the splashes keep their size, so far off they are small. Additive,
+/// grey, dimmed with the rain's ambient. Display only.
 /// </summary>
 sealed class RainSplashes(GameHost host)
 {
@@ -43,18 +44,12 @@ sealed class RainSplashes(GameHost host)
     const float RadiusPerDistance = 0.5f;
 
     /// <summary>
-    /// The eye's distance from its target up to which the splashes keep their size; beyond it they grow with the distance, so they stay a few
-    /// pixels across.
-    /// </summary>
-    const float TrueSizeDistance = 400;
-
-    /// <summary>
     /// The eye's distance from its target beyond which no splashes are made (600 m).
     /// </summary>
     const float MaxEyeDistance = 6000;
 
     /// <summary>
-    /// A splash's size and life against the foot splash's, on the ground and on the water, up to <see cref="TrueSizeDistance"/>: an eighth of a foot
+    /// A splash's size and life against the foot splash's, on the ground and on the water, : an eighth of a foot
     /// splash, as the owner asked after seeing them in the game (a drop's true size, a tenth, was under a pixel at the game's camera distances;
     /// **Observed**, test runs at a boom of 500, 1500 and 2000).
     /// </summary>
@@ -160,10 +155,11 @@ sealed class RainSplashes(GameHost host)
     }
 
     /// <summary>
-    /// The disc and the splashes for an eye's distance from its target: the disc's radius, the rate's factor (against
-    /// <see cref="ReferenceRadius"/>'s disc: by the radius below it, by the area above) and the splashes' size factor.
+    /// The disc for an eye's distance from its target: its radius and the rate's factor (against <see cref="ReferenceRadius"/>'s disc: by the
+    /// radius below it, by the area above). The splashes keep their size at any distance, so far off they are small, as the owner asked (they
+    /// had grown with the distance to stay a few pixels across).
     /// </summary>
-    readonly record struct Disc(float Radius, float Area, float Scale);
+    readonly record struct Disc(float Radius, float Area);
 
     /// <summary>
     /// The <see cref="Disc"/> for an eye <paramref name="distance"/> from its target.
@@ -173,7 +169,7 @@ sealed class RainSplashes(GameHost host)
         float radius = Math.Clamp(distance * RadiusPerDistance, MinRadius, MaxRadius);
         float ratio = radius / ReferenceRadius;
         float area = ratio < 1 ? ratio : ratio * ratio;
-        return new Disc(radius, area, Math.Max(1, distance / TrueSizeDistance));
+        return new Disc(radius, area);
     }
 
     /// <summary>
@@ -220,7 +216,7 @@ sealed class RainSplashes(GameHost host)
         var (at, water) = surface;
         if (host.ActiveObjects?.InteriorAt(at + new Vector3(0, HullTestHeight, 0)) is not null) return;
 
-        float size = (water ? WaterSize : GroundSize) * disc.Scale, life = water ? WaterLife : GroundLife;
+        float size = water ? WaterSize : GroundSize, life = water ? WaterLife : GroundLife;
         // The rain's material takes the sprites' ambient (darker at dusk and night) and the splash's does not: the grey takes it instead.
         var grey = new Vector3(RainGrey * float.Lerp(1, particles.SpriteAmbient, AmbientShare));
         particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life, grey);
