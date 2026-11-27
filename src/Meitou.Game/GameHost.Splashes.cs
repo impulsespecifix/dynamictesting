@@ -154,6 +154,7 @@ sealed partial class GameHost
 
         _splashFrame++;
         DryGround.Advance();
+        RainSplashes.Update(particles);
         PrepareSplashFrustum();
         IndexPrevious();
         var eye = Camera.Eye;

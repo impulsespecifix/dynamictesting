@@ -187,6 +187,10 @@ sealed partial class GameHost(
     /// The animations' dust kicks on dry ground.
     /// </summary>
     internal DryGroundEffects DryGround = null!;
+    /// <summary>
+    /// The raindrop splashes round the camera's target (Meitou's).
+    /// </summary>
+    internal RainSplashes RainSplashes = null!;
 
     /// <summary>
     /// The character editor's host side.
@@ -275,6 +279,7 @@ sealed partial class GameHost(
         Decapitation = new(this);
         CorpseFlies = new(this);
         DryGround = new(this);
+        RainSplashes = new(this);
 
         CharacterEditor = new(this);
         LevelEditorHost = new(this);
