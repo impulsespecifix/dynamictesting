@@ -23,6 +23,12 @@ four key-light samples, forward/back lobes and approximate multiple scattering. 
 and sky ambient feed HDR; source ceiling8, haze scale65000. Premultiplied colour/opacity composites
 over atmosphere/stars/planets before weather fog, with geometry drawn over the sky.
 
+## Fair-weather puffs
+
+Meitou (engine choice, testing only; `SkyRenderer.FairWeatherClouds`): the volume is drawn with a density of 0.25 at least in any weather,
+so a clear sky keeps a few scattered puffs (one or two in a 16:9 view 15° up, **Observed**, offscreen Vulkan renders at six places); an
+explicit `CloudCoverage` (`--clouds`, the title screen) is drawn as given. The volume is therefore marched in clear weather too.
+
 ## Cloud for the rain
 
 Meitou (engine choice, testing only; `CloudRain`): the game's camera rain (`CAMERA_RAIN`, `CAMERA_ACID_RAIN`) falls round the camera wherever it
