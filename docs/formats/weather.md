@@ -300,8 +300,9 @@ The optional row "Rain drops and puddles" (`WeatherSurfaces.WetWorld`, `uWetWorl
   than the few metres round the camera), uniform in distance so thicker near the camera; 10 a second per point of rain level (1000 at rain
   100), at most 1200 a second and 40 a frame; each the game's `Footsplashes01` (the foot splash's three
   `Footsplash` crown billboards, additive and unlit as the game's rain) recoloured a cool grey (0.5225, 0.5415, 0.57: 5 % under 0.55, 0.57, 0.6, a touch too white) by day and night (the rain's own grey and its night dimming left them unseen; smaller and dimmer
-  ones were tried and the owner chose this look back), as a burst at 0.25 of its size on the terrain, 0.35 on the water where the
-  water (`WorldWater.Height`) is above the terrain, or on what stands higher there: a building's floors and roofs (every floor,
+  ones were tried and the owner chose this look back), as a burst at 0.25 of its size on the terrain; where the water (`WorldWater.Height`) is above the terrain, at 0.35, Meitou's own
+  `meitou_rain_water_splash` instead (from the game's materials: a flat `Wade-base` foam ring on the water widening and fading over 0.6 s, a
+  thin `Kenshi-rainsplash_Basepart` jet for 0.25 s, a small `Footsplash[A]` crown for 0.2 s); or on what stands higher there: a building's floors and roofs (every floor,
   `WorldObjectRenderer.FloorHeightAt`) or a map feature's top (`FeatureHeightBelow`); each growing with its own distance from the eye past 400 by (distance / 400) to the power 0.75, so on screen they shrink
   slowly far off (1 kept one size on screen, owner); on the surface itself (lifted off it read wrong to the owner); none inside a building's hull
   (`InteriorAt` 2 units over the surface: a floor under a roof), the scene's depth hiding those under what the floor queries miss (**Observed**,

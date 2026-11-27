@@ -16,9 +16,111 @@ namespace Meitou.Game.Effects;
 sealed class RainSplashes(GameHost host)
 {
     /// <summary>
-    /// The particle system a splash plays: the game's <c>Footsplashes01</c> (three billboards of the <c>Footsplash</c> crown textures, 0.2 to 0.5 s).
+    /// The particle system a splash on the ground plays: the game's <c>Footsplashes01</c> (three billboards of the <c>Footsplash</c> crown
+    /// textures, 0.2 to 0.5 s).
     /// </summary>
     const string System = "Footsplashes01";
+
+    /// <summary>
+    /// The particle system a splash on the water plays: Meitou's <see cref="WaterScript"/>.
+    /// </summary>
+    const string WaterSystem = "meitou_rain_water_splash";
+
+    /// <summary>
+    /// Meitou's splash of a drop on open water, from the game's own materials: a flat ring of foam (<c>Wade-base</c>, the wading foam) lying on the
+    /// water and widening as it fades over 0.6 s, a thin jet thrown up from the middle (<c>Kenshi-rainsplash_Basepart</c>, the game's unused
+    /// rain-splash column) for 0.25 s, and a small crown (<c>Footsplash[A]</c>) for 0.2 s. Sizes at a foot splash's scale, as the ground's.
+    /// </summary>
+    const string WaterScript = """
+        system meitou_rain_water_splash
+        {
+            technique ring
+            {
+                visual_particle_quota 1
+                material Wade-base
+                default_particle_width 8
+                default_particle_height 8
+                default_particle_depth 8
+                renderer Billboard
+                {
+                    billboard_type perpendicular_common
+                    billboard_rotation_type vertex
+                    common_direction 0 1 0
+                    common_up_vector 0 0 1
+                }
+                emitter Point ring
+                {
+                    emission_rate 1
+                    time_to_live 0.6
+                    velocity 0
+                    duration 0.1
+                    force_emission true
+                }
+                affector Scale ringgrow
+                {
+                    xyz_scale 16
+                }
+                affector Colour ringfade
+                {
+                    time_colour 0 1 1 1 1
+                    time_colour 0.3 0.6 0.6 0.6 1
+                    time_colour 1 0 0 0 0
+                }
+            }
+            technique jet
+            {
+                visual_particle_quota 1
+                material Kenshi-rainsplash_Basepart
+                default_particle_width 2.5
+                default_particle_height 9
+                default_particle_depth 2.5
+                renderer Billboard
+                {
+                    billboard_origin bottom_center
+                }
+                emitter Point jet
+                {
+                    emission_rate 1
+                    time_to_live 0.25
+                    velocity 0
+                    duration 0.1
+                    force_emission true
+                }
+                affector Colour jetfade
+                {
+                    time_colour 0 1 1 1 1
+                    time_colour 1 0 0 0 0
+                }
+            }
+            technique crown
+            {
+                visual_particle_quota 1
+                material Footsplash[A]
+                default_particle_width 6
+                default_particle_height 6
+                default_particle_depth 6
+                renderer Billboard
+                {
+                    billboard_origin bottom_center
+                    billboard_rotation_type vertex
+                }
+                emitter Point crown
+                {
+                    emission_rate 1
+                    time_to_live 0.2
+                    velocity 0
+                    duration 0.1
+                    force_emission true
+                }
+                affector Colour crownfade
+                {
+                    time_colour 0 1 1 1 1
+                    time_colour 0.6 1 1 1 0.5
+                    time_colour 1 0 0 0 0
+                }
+            }
+        }
+        """;
 
     /// <summary>
     /// Splashes a second per point of rain level (0..100): 1000 a second in a full storm, 400 in full light rain (up to <see cref="MaxPerSecond"/>).
@@ -126,17 +228,24 @@ sealed class RainSplashes(GameHost host)
             return;
         }
 
-        if (!_prepared)
-        {
-            particles.PrepareBursts(System);
-            _prepared = true;
-        }
+        if (!_prepared || particles.Library.FindSystem(WaterSystem) is null) Prepare(particles);
 
         _owed += Math.Min(rain * PerRain, MaxPerSecond) * seconds;
         int count = Math.Min((int)_owed, MaxPerFrame);
         _owed -= (int)_owed;
         var fan = Fan.Of(host.Camera.Eye, target, distance);
         for (int i = 0; i < count; i++) Splash(particles, fan);
+    }
+
+    /// <summary>
+    /// Adds <see cref="WaterScript"/> to the particle library (once a renderer) and makes both splash systems' burst groups, so their textures
+    /// start decoding.
+    /// </summary>
+    void Prepare(ParticleRenderer particles)
+    {
+        if (particles.Library.FindSystem(WaterSystem) is null) particles.Library.AddScript(WaterScript, "meitou_rain_water_splash.pu");
+        particles.PrepareBursts(System, WaterSystem);
+        _prepared = true;
     }
 
     /// <summary>
@@ -215,6 +324,6 @@ sealed class RainSplashes(GameHost host)
 
         float growth = MathF.Pow(Math.Max(1, Vector3.Distance(fan.Eye, at) / GrowthFrom), GrowthPower);
         float size = (water ? WaterSize : GroundSize) * growth, life = water ? WaterLife : GroundLife;
-        particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life, Grey);
+        particles.Burst(water ? WaterSystem : System, at, Quaternion.Identity, EmitSeconds, size, life, Grey);
     }
 }
