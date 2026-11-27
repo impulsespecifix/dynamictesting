@@ -47,17 +47,24 @@ sealed class RainSplashes(GameHost host)
     const float MaxEyeDistance = 6000;
 
     /// <summary>
-    /// A splash's size and life against the foot splash's, on the ground and on the water, up to <see cref="TrueSizeDistance"/>: a quarter of a foot
-    /// splash (a drop's true size, a tenth, was under a pixel at the game's camera distances; **Observed**, test runs at a boom of 500
-    /// and 2000; half a foot splash read too large to the owner).
+    /// A splash's size and life against the foot splash's, on the ground and on the water, up to <see cref="TrueSizeDistance"/>: a third of a foot
+    /// splash (a drop's true size, a tenth, was under a pixel at the game's camera distances; **Observed**, test runs at a boom of 500, 1500
+    /// and 2000; half read too large to the owner, a quarter could not be seen).
     /// </summary>
-    const float GroundSize = 0.25f, WaterSize = 0.35f, GroundLife = 1, WaterLife = 1;
+    const float GroundSize = 0.35f, WaterSize = 0.5f, GroundLife = 1, WaterLife = 1;
 
     /// <summary>
-    /// The grey the splashes take in place of the crown textures' white (a burst's recolour), before the rain's ambient: near the rain streaks'
-    /// own (their emitters' colour 0.32, <c>kenshi_rain1</c> and <c>Kenshi_Heavy_Rain</c>), so the splashes blend in with the rain.
+    /// The grey the splashes take in place of the crown textures' white (a burst's recolour) in full daylight, the most a recolour takes: the
+    /// rain streaks' colour (0.32, <c>kenshi_rain1</c> and <c>Kenshi_Heavy_Rain</c>) left the faint, small crowns unseen (owner; **Observed**,
+    /// night test runs at a boom of 1500: at 0.6 and 1 barely a dot, at 2 small grey crowns).
     /// </summary>
-    const float RainGrey = 0.38f;
+    const float RainGrey = 2f;
+
+    /// <summary>
+    /// How much of the sprites' ambient (the rain's dimming at dusk and night, 0.1..1) the grey takes: some, so they dim with the rain but stay
+    /// in sight (all of it left a tenth of the light at night).
+    /// </summary>
+    const float AmbientShare = 0.3f;
 
     /// <summary>
     /// The seconds a splash's unit emits (its emitters run 0.2 to 0.5 s and stop).
@@ -204,7 +211,7 @@ sealed class RainSplashes(GameHost host)
 
         float size = (water ? WaterSize : GroundSize) * disc.Scale, life = water ? WaterLife : GroundLife;
         // The rain's material takes the sprites' ambient (darker at dusk and night) and the splash's does not: the grey takes it instead.
-        var grey = new Vector3(RainGrey * particles.SpriteAmbient);
+        var grey = new Vector3(RainGrey * float.Lerp(1, particles.SpriteAmbient, AmbientShare));
         particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life, grey);
     }
 }
