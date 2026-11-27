@@ -282,7 +282,7 @@ wind bed `209ED745` (**Verified**, the bank's HIRC and the event name hashes).
 
 Recorded heavy rain (Meitou, testing only): in a storm weather (`rain intensity` ≥ 60: `Heavy_Rain`, `misty rain`; not light rain) a looping
 16-bit PCM WAV, `%LOCALAPPDATA%\Meitou\audio\heavy-rain.wav` (not shipped), replaces the rain bed with an equal-power crossfade over 2.5 s
-each way, at the same rain level × a gain: 0.4, or the environment variable `MEITOU_HEAVY_RAIN_GAIN` (logged when the file loads). It plays 2D
+each way, at the same rain level × a gain: 0.28, or the environment variable `MEITOU_HEAVY_RAIN_GAIN` (logged when the file loads). It plays 2D
 on object 102 as a child of the rain bed's layer container, so it takes the container's volume, `Camera_Zoom` curves, sends and the ambience
 bus (Ambient slider, pause ducking) (`HeavyRainRecording`). Without the file the storms keep the rain bed (logged once).
 
@@ -291,7 +291,7 @@ bus (Ambient slider, pause ducking) (`HeavyRainRecording`). Without the file the
   0.5 at least (from about 1850 units up).
 - The bed's level follows the wind's `Intensity` through its layers' curves, which the recording, not in a layer, does not take
   (**Observed**, offline mix at `Camera_Zoom` 1 and Ambient 0.5): the full bed −62 dBFS at `Intensity` 0, −43 at 100; the recording at gain 1
-  about −26, so 0.4 is about 28 dB above the windless bed and 9 dB above the full-wind one.
+  about −26, so 0.28 is about 25 dB above the windless bed and 6 dB above the full-wind one.
 
 ### Volumes
 
