@@ -53,6 +53,12 @@ public readonly record struct ParticleEnvironment(
     /// No wind and every emission at its script rate.
     /// </summary>
     public static readonly ParticleEnvironment None = new(Vector2.Zero, 1, 1, false, false);
+
+    /// <summary>
+    /// Meitou: a horizontal velocity (x, z, units per second) added to every particle as it is emitted, so it flies, and an oriented sprite
+    /// leans, with it: the camera rain's push by the wind (<see cref="EffectGroup"/>); zero for everything else.
+    /// </summary>
+    public Vector2 WindPush { get; init; }
 }
 
 /// <summary>
@@ -524,9 +530,9 @@ public sealed class ParticleSimulation
         t.X[i] = p.X;
         t.Y[i] = p.Y;
         t.Z[i] = p.Z;
-        t.Vx[i] = direction.X * speed;
+        t.Vx[i] = (direction.X * speed) + env.WindPush.X;
         t.Vy[i] = direction.Y * speed;
-        t.Vz[i] = direction.Z * speed;
+        t.Vz[i] = (direction.Z * speed) + env.WindPush.Y;
         t.Age[i] = 0;
         t.Life[i] = life;
         t.Width[i] = width * scale.X * Size;

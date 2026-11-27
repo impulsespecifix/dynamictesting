@@ -26,6 +26,14 @@ public abstract class EffectGroup
     /// The terrain, area and density the group places its units in.
     /// </summary>
     protected EffectWorld _world;
+
+    /// <summary>
+    /// Meitou's wind-driven rain (docs/formats/weather.md "Wind-driven rain"; testing only): the share of the weather's wind (units per second) a
+    /// camera rain's drops are pushed by as they are emitted, so the streaks slant and drift with the wind. The game's rain effects are not wind
+    /// affected and fall at their script's fixed slant whatever the wind.
+    /// </summary>
+    const float RainWindPush = 0.8f;
+
     /// <summary>
     /// The group's seed; each unit's simulation seed is made from it and the unit's number.
     /// </summary>
@@ -163,7 +171,8 @@ public abstract class EffectGroup
     {
         var e = Effect;
         float windSpan = WindSpanScale(e, weather.Wind.Length()) * _world.Density;
-        return new ParticleEnvironment(weather.Wind, e.WindSpeedMultiplier, windSpan, e.WindAffected, e.WindDirectionEmission);
+        var push = e.Type is EffectType.CameraRain or EffectType.CameraAcidRain ? weather.Wind * RainWindPush : Vector2.Zero;
+        return new ParticleEnvironment(weather.Wind, e.WindSpeedMultiplier, windSpan, e.WindAffected, e.WindDirectionEmission) { WindPush = push };
     }
 
     /// <summary>
