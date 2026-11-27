@@ -130,11 +130,11 @@ public sealed class SkyClouds : IDisposable
     float StormCoverage(CloudSlab slab) => float.Lerp(slab.Density, 1, Heavy);
 
     /// <summary>
-    /// Once a frame after <see cref="SetRain"/>: the rain's floor and the cloud over <paramref name="eye"/> and in view along
-    /// <paramref name="forward"/> (<paramref name="volume"/>: the volume is drawn).
+    /// Once a frame after <see cref="SetRain"/>: the rain's floor and the cloud over the eye and on screen (<paramref name="view"/>;
+    /// <paramref name="volume"/>: the volume is drawn).
     /// </summary>
-    internal void UpdateRain(Vector3 eye, Vector3 forward, CloudSlab slab, bool volume) =>
-        Rain.Update(RainAmount > 0, eye, forward, slab.Bottom, StormCoverage(slab), slab.Shift, volume);
+    internal void UpdateRain(in RainView view, CloudSlab slab, bool volume) =>
+        Rain.Update(RainAmount > 0, view, slab.Bottom, StormCoverage(slab), slab.Shift, volume);
 
     /// <summary>
     /// This frame's rain sheets, or null: no volume, the main view not marched lately, or not a storm weather (light rain has none, however heavy).
