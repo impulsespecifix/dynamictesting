@@ -298,8 +298,8 @@ The optional row "Rain drops and puddles" (`WeatherSurfaces.WetWorld`, `uWetWorl
 - Raindrop splashes (`RainSplashes`, testing only): while it rains at the camera, drops land at random in a disc round the camera's target, its
   radius half the eye's distance from the target within 350 to 2000 units, 3 a second per point of rain level per 350-unit disc's area (300 a
   second at rain 100 in the least disc), at most 800 a second and 48 a frame; each the game's `Footsplashes01` (the foot splash's three
-  `Footsplash` crown billboards, additive and unlit as the game's rain) recoloured a grey of 2 (the most; the rain emitters' 0.32, 0.6 and 1 left the faint crowns unseen) dimmed by 0.3 of the sprites' ambient
-  the rain's material takes (`ParticleRenderer.SpriteAmbient`, 0.1 to 1 by the sun's height; all of it left them unseen at night), as a burst at 0.35 of its size on the terrain, 0.5 on the water where the
+  `Footsplash` crown billboards, additive and unlit as the game's rain) recoloured a grey of 1.2 (the rain emitters' 0.32 left the faint crowns unseen, 2 was too far from the rain's) dimmed by half the sprites' ambient
+  the rain's material takes (`ParticleRenderer.SpriteAmbient`, 0.1 to 1 by the sun's height; all of it left them unseen at night), as a burst at 0.175 of its size on the terrain, 0.25 on the water where the
   water (`WorldWater.Height`) is above the terrain, or on what stands higher there: a building's floors and roofs (every floor,
   `WorldObjectRenderer.FloorHeightAt`) or a map feature's top (`FeatureHeightBelow`); both times the eye's distance over 400 when farther (a drop's true size was under a pixel:
   **Observed**, test runs in Heavy_Rain at a boom of 500 and 2000, splashes made and drawn, visible only so); none inside a building's hull
