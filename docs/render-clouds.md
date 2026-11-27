@@ -34,6 +34,9 @@ smoothed over 3 s, scales the camera rain's emission (`EffectWorld.RainEmission`
 Without the volume (clouds off, the game's flat layer) the rain falls everywhere. The simulation's weather (wetness, rain collectors, farms)
 is unchanged.
 
+The rain sheets (pale veils under the deck, `RainSheets`) are for the storm weathers alone (`rain intensity` ≥ 60: `Heavy_Rain`,
+`misty rain`), coming and going over 20 s with the weather; light rain has none (`SkyClouds.RainSheets`).
+
 `CloudCover` is the shader's cover on the CPU: the fine atlas' blue channel at y `VolumetricClouds.WeatherSlice` (0.37), as its bytes,
 trilinear, and the same curve; **Verified** against a shader-style sample of the atlas itself (20 000 random places, shifts and coverages,
 largest difference 0). The shader and `CloudCover.At` must change together.

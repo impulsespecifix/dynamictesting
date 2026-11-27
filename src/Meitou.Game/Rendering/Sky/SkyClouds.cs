@@ -70,6 +70,12 @@ public sealed class SkyClouds : IDisposable
     float _storm;
 
     /// <summary>
+    /// How far the rain sheets are in (0..1): towards 1 in a storm weather (<see cref="VolumetricClouds.StormWeatherRain"/>), else 0, at the storm's
+    /// rate; light rain has none.
+    /// </summary>
+    float _sheets;
+
+    /// <summary>
     /// When the storm was last moved (<see cref="System.Diagnostics.Stopwatch"/> ticks; 0: never, the first frame snaps).
     /// </summary>
     long _stormTicks;
@@ -96,6 +102,9 @@ public sealed class SkyClouds : IDisposable
         float step = _stormTicks == 0 ? 1 : (float)System.Diagnostics.Stopwatch.GetElapsedTime(_stormTicks, now).TotalSeconds / StormTurnSeconds;
         _stormTicks = now;
         _storm += Math.Clamp(target - _storm, -step, step);
+
+        float sheets = weatherRainIntensity >= VolumetricClouds.StormWeatherRain ? 1 : 0;
+        _sheets += Math.Clamp(sheets - _sheets, -step, step);
     }
 
     /// <summary>
@@ -127,11 +136,11 @@ public sealed class SkyClouds : IDisposable
         Rain.Update(RainAmount > 0, eye, StormCoverage(slab), slab.Shift, volume);
 
     /// <summary>
-    /// This frame's rain sheets, or null: no volume, the main view not marched lately, or the rain not heavy.
+    /// This frame's rain sheets, or null: no volume, the main view not marched lately, or not a storm weather (light rain has none, however heavy).
     /// </summary>
     internal RainSheetFrame? RainSheets()
     {
-        float strength = MathF.Max(VolumetricClouds.RainSheets(RainAmount), _storm);
+        float strength = MathF.Max(VolumetricClouds.RainSheets(RainAmount), _storm) * _sheets;
         if (_volume is null || strength <= 0 || !_volume.MainMarchedRecently) return null;
 
         return new RainSheetFrame(_volume, strength);
