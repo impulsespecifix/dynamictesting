@@ -31,6 +31,33 @@ public sealed class HeavyRainRecording(WwisePlayer player)
     const float StopSeconds = 0.1f;
 
     /// <summary>
+    /// The recording's gain when <see cref="GainVariable"/> is not set. The recording (−1 dBFS peak) at 1 plays about 36 dB above the rain bed with
+    /// no wind and 17 dB above it at full wind (the bed's layers follow the wind's <c>Intensity</c>, the recording does not); 0.5 is 6 dB under that.
+    /// </summary>
+    const float DefaultGain = 0.5f;
+
+    /// <summary>
+    /// The environment variable that overrides <see cref="DefaultGain"/> (a float, invariant culture), for tuning without a build.
+    /// </summary>
+    const string GainVariable = "MEITOU_HEAVY_RAIN_GAIN";
+
+    /// <summary>
+    /// The lowest the bank's camera fade may take the recording (a linear gain).
+    /// </summary>
+    const float CameraFadeFloor = 0.5f;
+
+    /// <summary>
+    /// The rain bed's <c>Camera_Zoom</c> volume curve, on its layer container (scaling 2: gain − 1; linear): 1 up to 60 (1200 units up), 0.41
+    /// from 100 (2000 units); the recording inherits it.
+    /// </summary>
+    static readonly WwiseCurvePoint[] CameraFadeCurve = [new(0, 0, 4), new(60.02f, 0, 4), new(100, -0.589f, 4)];
+
+    /// <summary>
+    /// The gain in use: <see cref="GainVariable"/> when it holds a non-negative number, else <see cref="DefaultGain"/>.
+    /// </summary>
+    static readonly float Gain = ReadGain();
+
+    /// <summary>
     /// The recording's samples once loaded (null: missing or unreadable); started by the first <see cref="Update"/> that wants it.
     /// </summary>
     Task<WwisePcm?>? _load;
@@ -81,9 +108,21 @@ public sealed class HeavyRainRecording(WwisePlayer player)
     }
 
     /// <summary>
-    /// Sets the recording's gain (<see cref="WwisePlayer.SetObjectGain"/> on its object).
+    /// Sets the recording's gain on its object: <paramref name="level"/> (the rain level × its crossfade share) × <see cref="Gain"/>, raised at a
+    /// high <paramref name="cameraZoom"/> (the <c>Camera_Zoom</c> parameter) so the bank's camera fade never takes it below
+    /// <see cref="CameraFadeFloor"/>.
     /// </summary>
-    public void SetGain(float gain) => player.SetObjectGain(AudioSystem.HeavyRainObject, gain);
+    public void SetLevel(float level, float cameraZoom) =>
+        player.SetObjectGain(AudioSystem.HeavyRainObject, level * Gain * CameraFloorBoost(cameraZoom));
+
+    /// <summary>
+    /// The factor that holds the bank's camera fade on the recording at <see cref="CameraFadeFloor"/> at least: 1 while the fade is above it.
+    /// </summary>
+    static float CameraFloorBoost(float cameraZoom)
+    {
+        float fade = 1 + WwiseCurves.Evaluate(CameraFadeCurve, cameraZoom);
+        return fade >= CameraFadeFloor ? 1 : CameraFadeFloor / Math.Max(fade, 1e-3f);
+    }
 
     /// <summary>
     /// Stops the loop at once and returns to the rain bed (back to the main menu).
@@ -122,6 +161,17 @@ public sealed class HeavyRainRecording(WwisePlayer player)
     }
 
     /// <summary>
+    /// <see cref="GainVariable"/> as a non-negative float; <see cref="DefaultGain"/> when unset or unreadable.
+    /// </summary>
+    static float ReadGain()
+    {
+        string? text = Environment.GetEnvironmentVariable(GainVariable);
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+        bool parsed = float.TryParse(text, System.Globalization.NumberStyles.Float, invariant, out float gain);
+        return parsed && gain >= 0 && float.IsFinite(gain) ? gain : DefaultGain;
+    }
+
+    /// <summary>
     /// Reads <see cref="FilePath"/>; null (reported once, then the rain bed plays on in storms) when it is missing or not a 16-bit PCM WAV.
     /// </summary>
     static WwisePcm? Load()
@@ -136,7 +186,11 @@ public sealed class HeavyRainRecording(WwisePlayer player)
             }
 
             var pcm = WwisePcm.TryRead(File.ReadAllBytes(path));
-            if (pcm is { Frames: > 0 }) return pcm;
+            if (pcm is { Frames: > 0 })
+            {
+                Console.Error.WriteLine($"audio     heavy-rain recording {path}, gain {Gain:0.###}");
+                return pcm;
+            }
 
             Console.Error.WriteLine($"audio     {path} is not a 16-bit PCM WAV; storms keep the game's rain bed");
             return null;

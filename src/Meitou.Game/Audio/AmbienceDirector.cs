@@ -90,12 +90,6 @@ public sealed class AmbienceDirector(WwisePlayer player)
     const float RainQuietGain = 0.35f, RainFullAmount = 0.6f;
 
     /// <summary>
-    /// The recorded heavy rain's gain on top of the rain level (<see cref="HeavyRainRecording"/>): the recording (normalised to −1 dBFS peak) plays
-    /// about 36 dB above the full rain bed at 1, so 0.05 puts it about 10 dB above (the storms' old ×2.5 boost was 8 dB).
-    /// </summary>
-    const float HeavyRainRecordingGain = 0.05f;
-
-    /// <summary>
     /// The seconds the rain level takes to follow (the time constant of its smoothing).
     /// </summary>
     const float RainGainSeconds = 2;
@@ -229,7 +223,7 @@ public sealed class AmbienceDirector(WwisePlayer player)
     /// <summary>
     /// Meitou: the rain's level follows the rain, from <see cref="RainQuietGain"/> at the least rain to 1 at <see cref="RainFullAmount"/> (smooth),
     /// smoothed over <see cref="RainGainSeconds"/>. In a storm weather the recorded heavy rain takes over from the rain bed (an equal-power
-    /// crossfade), at <see cref="HeavyRainRecordingGain"/>; both keep the bank's camera-height fade on top.
+    /// crossfade); both keep the bank's camera-height fade on top (the recording's held at a floor, <see cref="HeavyRainRecording.SetLevel"/>).
     /// </summary>
     void UpdateRainGain(in AmbienceInput input)
     {
@@ -240,7 +234,7 @@ public sealed class AmbienceDirector(WwisePlayer player)
 
         _heavyRain.Update(_raining && input.Storm >= 0.5f, input.RealSeconds);
         player.SetObjectGain(AudioSystem.RainObject, _rainGain * _heavyRain.BedLevel);
-        _heavyRain.SetGain(_rainGain * _heavyRain.RecordingLevel * HeavyRainRecordingGain);
+        _heavyRain.SetLevel(_rainGain * _heavyRain.RecordingLevel, input.EyeAboveGround / 2000 * 100);
     }
 
     /// <summary>

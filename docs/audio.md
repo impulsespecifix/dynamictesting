@@ -282,11 +282,16 @@ wind bed `209ED745` (**Verified**, the bank's HIRC and the event name hashes).
 
 Recorded heavy rain (Meitou, testing only): in a storm weather (`rain intensity` ≥ 60: `Heavy_Rain`, `misty rain`; not light rain) a looping
 16-bit PCM WAV, `%LOCALAPPDATA%\Meitou\audio\heavy-rain.wav` (not shipped), replaces the rain bed with an equal-power crossfade over 2.5 s
-each way, at the same rain level × `HeavyRainRecordingGain` (0.05: the −1 dBFS-peak recording sits about 10 dB above the full rain bed;
-at 1 it would be about 36 dB above, measured offline at `Camera_Zoom` 1). It plays 2D on object 102 as a child of the rain bed's layer container, so it
-takes the bed's volume, `Camera_Zoom` curves, sends and the ambience bus (Ambient slider, pause ducking) (`HeavyRainRecording`). The bed's
-level also follows the wind's `Intensity` (**Observed**, `audio render`: −62 dBFS at 0, −51 at 50, −43 at 100), and so does the recording. Without the
-file the storms keep the rain bed (logged once).
+each way, at the same rain level × a gain: 0.5, or the environment variable `MEITOU_HEAVY_RAIN_GAIN` (logged when the file loads). It plays 2D
+on object 102 as a child of the rain bed's layer container, so it takes the container's volume, `Camera_Zoom` curves, sends and the ambience
+bus (Ambient slider, pause ducking) (`HeavyRainRecording`). Without the file the storms keep the rain bed (logged once).
+
+- The container's `Camera_Zoom` curves (**Verified**, the bank's HIRC): volume ×1 up to 60 (1200 units up), linear to ×0.41 at 100 (2000
+  units) and held; low-pass −100 to 11.77, −31 at 30.23, −9 at 42.49, 2 at 59.99, 29 at 100. Meitou holds the recording's volume fade at
+  0.5 at least (from about 1850 units up).
+- The bed's level follows the wind's `Intensity` through its layers' curves, which the recording, not in a layer, does not take
+  (**Observed**, offline mix at `Camera_Zoom` 1 and Ambient 0.5): the full bed −62 dBFS at `Intensity` 0, −43 at 100; the recording at gain 1
+  about −26, so 0.5 is about 30 dB above the windless bed and 11 dB above the full-wind one.
 
 ### Volumes
 
