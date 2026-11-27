@@ -28,7 +28,8 @@ over atmosphere/stars/planets before weather fog, with geometry drawn over the s
 Meitou (engine choice, testing only; `CloudRain`): the game's camera rain (`CAMERA_RAIN`, `CAMERA_ACID_RAIN`: `rain_light`, `Kenshi_Heavy_Rain`, the
 red and black rains) falls round the camera wherever it is in the region, so it can fall from a gap. While the rain level is above 0 the
 coverage is held at 0.7 at least (in over 10 s, out as long), which leaves about 80 % of the sky with cloud (cover > 0.05; 76 % above 0.4,
-**Observed**, a 200 × 200 grid of `CloudCover` samples); a storm's cover (`SkyClouds.Storm`) still closes it all. The rain then falls as the
+**Observed**, a 200 × 200 grid of `CloudCover` samples). The storm (`SkyClouds.Storm`: the closed, darkened deck without towers) is for the
+storm weathers alone (`rain intensity` ≥ 60), in and out over 20 s; light rain keeps its cloud shapes and the fair-weather light. The rain then falls as the
 cloud over the camera allows: the mean cover of five samples (over the eye and 2500 units round it), 0 at 0.05 to 1 at 0.4 (smoothstep),
 smoothed over 3 s, scales the camera rain's emission (`EffectWorld.RainEmission`) and the rain's sound (`AmbienceInput.RainWithheld`).
 Without the volume (clouds off, the game's flat layer) the rain falls everywhere. The simulation's weather (wetness, rain collectors, farms)

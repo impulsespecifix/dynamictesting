@@ -28,14 +28,7 @@ public static class VolumetricClouds
     public const float StormWeatherRain = 60;
 
     /// <summary>
-    /// How heavy the rain is for the clouds, from the weather's rain amount (rain / 50, saturated): 0 below 0.15, 1 from 0.6 (a rain level of 7.5
-    /// to 30 of 100, so a scheduled rain at part strength still closes the sky), smooth between. It closes the cover and darkens the deck.
-    /// </summary>
-    public static float HeavyRain(float rainAmount) => Ramp(rainAmount, 0.15f, 0.6f);
-
-    /// <summary>
-    /// How strong the rain sheets are, from the weather's rain amount: 0 below 0.15, 1 from 0.6, smooth between (their own ramp, tuned apart from
-    /// <see cref="HeavyRain"/>).
+    /// How strong the rain sheets are, from the weather's rain amount (rain / 50, saturated): 0 below 0.15, 1 from 0.6, smooth between.
     /// </summary>
     public static float RainSheets(float rainAmount) => Ramp(rainAmount, 0.15f, 0.6f);
 

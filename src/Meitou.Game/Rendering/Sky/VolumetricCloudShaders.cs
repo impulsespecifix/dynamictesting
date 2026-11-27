@@ -26,7 +26,7 @@ public static class VolumetricCloudShaders
         const float CLOUD_EXTINCTION = {{F(Data.World.VolumetricClouds.Extinction)}};
         const float CLOUD_BASE_THICKNESS = {{F(Data.World.VolumetricClouds.Thickness)}};
         const float CLOUD_TOWER = {{F(Data.World.VolumetricClouds.LayerHeight - Data.World.VolumetricClouds.Thickness)}};
-        uniform float uCloudStorm;   // heavy rain, 0..1 (VolumetricClouds.HeavyRain): a closed deck, darker and thicker
+        uniform float uCloudStorm;   // a storm weather, 0..1 (SkyClouds.Storm): a closed deck, darker and thicker
         // In a full storm: the sun's and the sky's light on the deck and its extinction, as shares of the fair-weather ones (no silver lining and
         // no sunset glow at all); the least optical depth the shadow map gives the deck (its thin spots still shade the land).
         const float STORM_KEY = 0.1, STORM_AMBIENT = 0.35, STORM_EXTINCTION = 1.6, STORM_SHADOW_DEPTH = 4.0;

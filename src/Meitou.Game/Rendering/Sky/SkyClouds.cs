@@ -86,8 +86,9 @@ public sealed class SkyClouds : IDisposable
     public float RainAmount { get; private set; }
 
     /// <summary>
-    /// How stormy the sky is (0..1): the heavy rain (<see cref="VolumetricClouds.HeavyRain"/>) or a storm weather, followed smoothly. It closes the
-    /// cover, darkens the deck and the world's light (<see cref="SkyRenderer"/>), and brings the rain sheets.
+    /// How stormy the sky is (0..1): 1 in a storm weather (<see cref="VolumetricClouds.StormWeatherRain"/>), else 0 (light rain keeps its cloud
+    /// shapes, held by the rain's floor, <see cref="CloudRain"/>), followed smoothly. It closes the cover, darkens the deck and the world's light
+    /// (<see cref="SkyRenderer"/>), and brings the rain sheets.
     /// </summary>
     public float Storm => _storm;
 
@@ -97,7 +98,7 @@ public sealed class SkyClouds : IDisposable
     public void SetRain(float rainAmount, float weatherRainIntensity)
     {
         RainAmount = rainAmount;
-        float target = weatherRainIntensity >= VolumetricClouds.StormWeatherRain ? 1 : VolumetricClouds.HeavyRain(rainAmount);
+        float target = weatherRainIntensity >= VolumetricClouds.StormWeatherRain ? 1 : 0;
         long now = System.Diagnostics.Stopwatch.GetTimestamp();
         float step = _stormTicks == 0 ? 1 : (float)System.Diagnostics.Stopwatch.GetElapsedTime(_stormTicks, now).TotalSeconds / StormTurnSeconds;
         _stormTicks = now;

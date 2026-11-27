@@ -124,7 +124,7 @@ public sealed class VolumetricCloudRenderer : IDisposable
     public float Bottom { get; set; } = VolumetricClouds.Bottom;
 
     /// <summary>
-    /// How heavy the rain is (<see cref="VolumetricClouds.HeavyRain"/>): the march darkens and thickens the deck by it.
+    /// How stormy the sky is (<see cref="SkyClouds.Storm"/>): the march darkens and thickens the deck by it.
     /// </summary>
     public float Storm { get; set; }
 
