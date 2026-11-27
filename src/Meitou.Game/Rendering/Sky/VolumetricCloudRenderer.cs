@@ -129,9 +129,9 @@ public sealed class VolumetricCloudRenderer : IDisposable
     public float Storm { get; set; }
 
     /// <summary>
-    /// The rain's canopy (<see cref="CloudRain.Canopy"/>): full cover round the eye's column while it rains.
+    /// The rain's veil (<see cref="CloudRain.Veil"/>): near-full cover while it rains, thinner where the weather leaves gaps.
     /// </summary>
-    public Vector3 Canopy { get; set; }
+    public Vector3 Veil { get; set; }
 
     /// <summary>
     /// The main view's last march: its coverage, wind offset, key light, light direction and ambient, which the rain sheets read
@@ -249,7 +249,7 @@ public sealed class VolumetricCloudRenderer : IDisposable
         p.Set(p.Uniform("uCloudSlab"), Bottom, Bottom + VolumetricClouds.LayerHeight);
         p.Set(p.Uniform("uCloudTime"), (float)(_clock.Elapsed.TotalSeconds % EvolvePeriod));
         p.Set(p.Uniform("uCloudStorm"), Storm);
-        p.Set(p.Uniform("uRainCanopy"), Canopy);
+        p.Set(p.Uniform("uRainVeil"), Veil);
         UpdateShear(wind);
         p.Set(p.Uniform("uCloudShear"), _shearDirection.X * ShearAmount, _shearDirection.Y * ShearAmount);
     }

@@ -26,13 +26,13 @@ over atmosphere/stars/planets before weather fog, with geometry drawn over the s
 ## Cloud for the rain
 
 Meitou (engine choice, testing only; `CloudRain`): the game's camera rain (`CAMERA_RAIN`, `CAMERA_ACID_RAIN`) falls round the camera wherever it
-is in the region, so the cloud comes to the rain. While the rain level is above 0 the coverage is held at 0.7 at least (about 80 % of the sky
-with cloud, **Observed**, a 200 × 200 grid of CPU samples of the shader's cover), and a canopy of full cover is drawn round the eye's column
-(`uRainCanopy`, after the weather's cover in `cloudDensityAt`): full within the radius at which the cloud base is 40° above the horizon, fading
-out by 20° (radii from the base's height over the eye, at least 4000), so the sky over the rain is never clear and gaps show only towards the
-horizon. Both come in over 10 s as the rain starts and go as it ends; the shadow map sees the canopy too. The storm (`SkyClouds.Storm`: the
-closed, darkened deck without towers) is for the storm weathers alone (`rain intensity` ≥ 60), in and out over 20 s; light rain keeps its cloud
-shapes and the fair-weather light. The rain, its sound and the simulation's weather are the game's.
+is in the region, so while it rains the sky is all but closed, thinner in places. The coverage is held at 0.7 at least, and the cloud shader's
+veil (`uRainVeil`, in `cloudDensityAt`) raises the cover everywhere to 0.9 at least while the density keeps a share of the weather's own
+cover, from 0.3 where it would leave a gap to 1 where it is full: the gaps become thin, brighter cloud, with at most a hint of sky (**Observed**,
+offscreen Vulkan renders at density 0.6, looking up and 25° up, dry against rain). Both come in over 10 s as the rain starts and go as it ends;
+the shadow map sees the veil too. The storm (`SkyClouds.Storm`: the closed, darkened deck without towers) is for the storm weathers alone
+(`rain intensity` ≥ 60), in and out over 20 s; light rain keeps its cloud shapes and the fair-weather light. The rain, its sound and the
+simulation's weather are the game's.
 
 The rain sheets (pale veils under the deck, `RainSheets`) are for the storm weathers alone (`rain intensity` ≥ 60: `Heavy_Rain`,
 `misty rain`), coming and going over 20 s with the weather; light rain has none (`SkyClouds.RainSheets`).
