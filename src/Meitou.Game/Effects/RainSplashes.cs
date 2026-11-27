@@ -26,14 +26,14 @@ sealed class RainSplashes(GameHost host)
     const float PerRain = 3;
 
     /// <summary>
-    /// The least radius round the camera's target the drops land in (6 m, the camera close), and the most.
+    /// The least radius round the camera's target the drops land in (1.5 m: at ground level, close round the character the camera looks at, as the
+    /// owner asked), and the most.
     /// </summary>
-    const float MinRadius = 60, MaxRadius = 2000;
+    const float MinRadius = 15, MaxRadius = 2000;
 
     /// <summary>
-    /// The disc's radius (35 m) up to which the rate is <see cref="PerRain"/>'s alone: a smaller disc (the camera close) keeps that many, so the
-    /// view's few metres get them all; a larger one gets more, as many per area. With the disc held at 35 m the camera close saw a tenth of them
-    /// and they seemed to vanish (owner).
+    /// The disc's radius (35 m) at which the rate is <see cref="PerRain"/>'s: a smaller disc (the camera close) gets fewer, by its radius (so the
+    /// few metres in view keep a good share without a crowd at the feet); a larger one more, as many per area.
     /// </summary>
     const float ReferenceRadius = 350;
 
@@ -99,14 +99,6 @@ sealed class RainSplashes(GameHost host)
     const float FromAbove = 1e6f;
 
     /// <summary>
-    /// How far a splash is lifted off its surface: at least the particles' least soft-fade distance (2 units, <c>vSoft</c>), and a share of the
-    /// sprite's height (Footsplashes01's largest billboard is 14 units at size 1). On the surface, a small camera-facing sprite seen from above lies
-    /// within the soft fade of the ground behind it and fades out: the splashes vanished as the camera came close and they shrank to their least
-    /// size (owner).
-    /// </summary>
-    const float MinLift = 2.5f, LiftPerSize = 4;
-
-    /// <summary>
     /// The height above a point the building hull test is made at.
     /// </summary>
     const float HullTestHeight = 2;
@@ -166,8 +158,8 @@ sealed class RainSplashes(GameHost host)
     }
 
     /// <summary>
-    /// The disc and the splashes for an eye's distance from its target: the disc's radius, the rate's factor (its area against
-    /// <see cref="ReferenceRadius"/>'s, at least 1) and the splashes' size factor.
+    /// The disc and the splashes for an eye's distance from its target: the disc's radius, the rate's factor (against
+    /// <see cref="ReferenceRadius"/>'s disc: by the radius below it, by the area above) and the splashes' size factor.
     /// </summary>
     readonly record struct Disc(float Radius, float Area, float Scale);
 
@@ -177,7 +169,8 @@ sealed class RainSplashes(GameHost host)
     static Disc Spread(float distance)
     {
         float radius = Math.Clamp(distance * RadiusPerDistance, MinRadius, MaxRadius);
-        float area = Math.Max(1, radius * radius / (ReferenceRadius * ReferenceRadius));
+        float ratio = radius / ReferenceRadius;
+        float area = ratio < 1 ? ratio : ratio * ratio;
         return new Disc(radius, area, Math.Max(1, distance / TrueSizeDistance));
     }
 
@@ -228,7 +221,6 @@ sealed class RainSplashes(GameHost host)
         float size = (water ? WaterSize : GroundSize) * disc.Scale, life = water ? WaterLife : GroundLife;
         // The rain's material takes the sprites' ambient (darker at dusk and night) and the splash's does not: the grey takes it instead.
         var grey = new Vector3(RainGrey * float.Lerp(1, particles.SpriteAmbient, AmbientShare));
-        at.Y += Math.Max(MinLift, LiftPerSize * size);
         particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life, grey);
     }
 }
