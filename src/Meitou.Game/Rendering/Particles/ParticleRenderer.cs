@@ -1352,6 +1352,12 @@ public sealed unsafe class ParticleRenderer : IDisposable
     /// The sprites' ambient light from the sun's height.
     /// </summary>
     float _frameAmbient;
+
+    /// <summary>
+    /// The last frame's ambient on the sprites whose material takes it (the game's rain: <c>Basic_Coloured_Ambient_VP</c>), 0.1..1 by the sun's
+    /// height; for effects that must match them (<see cref="Effects.RainSplashes"/>).
+    /// </summary>
+    internal float SpriteAmbient => _frameAmbient;
     /// <summary>
     /// Whether this frame's draws have not yet been written into the reactive mask.
     /// </summary>
