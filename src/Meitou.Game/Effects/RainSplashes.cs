@@ -6,12 +6,12 @@ using Meitou.Game.Rendering.Particles;
 namespace Meitou.Game.Effects;
 
 /// <summary>
-/// Meitou's raindrop splashes (docs/formats/weather.md "Rain splashes"; testing only, engine choice): while it rains, drops landing round the
-/// camera throw up a small grey splash, the game's own foot-splash system (<see cref="System"/>) at a quarter of its size, on the terrain or,
+/// Meitou's raindrop splashes (docs/formats/weather.md "Rain splashes"; testing only, engine choice): while it rains, drops landing in front of
+/// the camera throw up a small grey splash, the game's own foot-splash system (<see cref="System"/>) at a quarter of its size, on the terrain or,
 /// where the water is higher, a little larger on the water, or on a building's floors and roofs and on rocks where they are higher. As many as the
-/// rain is heavy; none inside a building's hull, and the scene's depth hides those under what the floor queries miss. The disc they land in
-/// grows with the camera's distance from its target (<see cref="Spread"/>); the splashes keep their size, so far off they are small. Additive,
-/// a cool grey. Display only.
+/// rain is heavy; none inside a building's hull, and the scene's depth hides those under what the floor queries miss. They land in a fan from
+/// the ground under the eye out to a long range (<see cref="Fan"/>), thicker near the camera, and each grows with its own distance from the eye,
+/// a little less than the distance, so on screen they shrink slowly far off. Additive, a cool grey. Display only.
 /// </summary>
 sealed class RainSplashes(GameHost host)
 {
@@ -21,33 +21,32 @@ sealed class RainSplashes(GameHost host)
     const string System = "Footsplashes01";
 
     /// <summary>
-    /// Splashes a second per point of rain level (0..100) in the least disc: 300 a second in a full storm, 120 in full light rain (a wider disc gets
-    /// more, as many per area, up to <see cref="MaxPerSecond"/>).
+    /// Splashes a second per point of rain level (0..100): 1000 a second in a full storm, 400 in full light rain (up to <see cref="MaxPerSecond"/>).
     /// </summary>
-    const float PerRain = 3;
+    const float PerRain = 10;
 
     /// <summary>
-    /// The least radius of the disc the drops land in (half a metre: the owner asked for none at all at ground level), and the most.
+    /// How far out the drops land: the eye's distance from its target times <see cref="RangePerDistance"/>, within these (150 to 800 m; at ground
+    /// level 150 m: the owner asked for a much longer range than the few metres round the camera).
     /// </summary>
-    const float MinRadius = 5, MaxRadius = 2000;
+    const float MinRange = 1500, MaxRange = 8000;
 
     /// <summary>
-    /// The disc's radius (35 m) at which the rate is <see cref="PerRain"/>'s: a smaller disc (the camera close) gets fewer, by its radius (so the
-    /// few metres in view keep a good share without a crowd at the feet); a larger one more, as many per area.
+    /// The range per unit of the eye's distance from its target.
     /// </summary>
-    const float ReferenceRadius = 350;
+    const float RangePerDistance = 3;
 
     /// <summary>
-    /// The eye's distance from its target past which the splashes grow, and how fast: their size times (distance / <see cref="GrowthFrom"/>) to
-    /// this power. In full (1: five times at a boom of 2000) they keep one size on screen, which the owner chose after trying none and 0.35.
+    /// The fan's half-angle either side of the camera's heading, degrees (wider than the view, which turns while they live).
     /// </summary>
-    const float GrowthFrom = 400, GrowthPower = 1;
+    const float HalfFan = 80;
 
     /// <summary>
-    /// The disc's radius per unit of the eye's distance from its target. The disc is centred halfway between the target and the ground under the
-    /// eye, so it reaches from the camera's feet to its target: round the target alone, none fell close to the camera (owner).
+    /// A splash's growth with its distance from the eye: past <see cref="GrowthFrom"/>, its size times (distance / <see cref="GrowthFrom"/>) to
+    /// <see cref="GrowthPower"/>, a little under 1, so on screen it shrinks slowly with the distance (1: one size on screen; 0: true size, under a
+    /// pixel far off).
     /// </summary>
-    const float RadiusPerDistance = 0.5f;
+    const float GrowthFrom = 400, GrowthPower = 0.75f;
 
     /// <summary>
     /// The eye's distance from its target beyond which no splashes are made (600 m).
@@ -73,14 +72,14 @@ sealed class RainSplashes(GameHost host)
     const float EmitSeconds = 0.5f;
 
     /// <summary>
-    /// The most splashes started in one frame (a stall, or a wide disc, does not throw a crowd at once).
+    /// The most splashes started in one frame (a stall does not throw a crowd at once).
     /// </summary>
-    const int MaxPerFrame = 48;
+    const int MaxPerFrame = 40;
 
     /// <summary>
-    /// The most splashes a second, however wide the disc (each is a particle unit of its own).
+    /// The most splashes a second (each is a particle unit of its own).
     /// </summary>
-    const float MaxPerSecond = 800;
+    const float MaxPerSecond = 1200;
 
     /// <summary>
     /// The longest frame step the spawn clock takes, seconds.
@@ -133,12 +132,11 @@ sealed class RainSplashes(GameHost host)
             _prepared = true;
         }
 
-        var disc = Spread(distance);
-        _owed += Math.Min(rain * PerRain * disc.Area, MaxPerSecond) * seconds;
+        _owed += Math.Min(rain * PerRain, MaxPerSecond) * seconds;
         int count = Math.Min((int)_owed, MaxPerFrame);
         _owed -= (int)_owed;
-        var centre = Vector3.Lerp(target, host.Camera.Eye, 0.5f);
-        for (int i = 0; i < count; i++) Splash(particles, centre, disc);
+        var fan = Fan.Of(host.Camera.Eye, target, distance);
+        for (int i = 0; i < count; i++) Splash(particles, fan);
     }
 
     /// <summary>
@@ -153,21 +151,20 @@ sealed class RainSplashes(GameHost host)
     }
 
     /// <summary>
-    /// The disc for an eye's distance from its target: its radius, the rate's factor (against <see cref="ReferenceRadius"/>'s disc: by the
-    /// radius below it, by the area above) and the splashes' size factor (<see cref="GrowthPower"/>).
+    /// Where the drops land this frame: from the ground under <see cref="Eye"/> out to <see cref="Range"/>, within <see cref="HalfFan"/> of the
+    /// camera's <see cref="Heading"/> (radians, in the xz plane).
     /// </summary>
-    readonly record struct Disc(float Radius, float Area, float Scale);
-
-    /// <summary>
-    /// The <see cref="Disc"/> for an eye <paramref name="distance"/> from its target.
-    /// </summary>
-    static Disc Spread(float distance)
+    readonly record struct Fan(Vector3 Eye, float Heading, float Range)
     {
-        float radius = Math.Clamp(distance * RadiusPerDistance, MinRadius, MaxRadius);
-        float ratio = radius / ReferenceRadius;
-        float area = ratio < 1 ? ratio : ratio * ratio;
-        float scale = MathF.Pow(Math.Max(1, distance / GrowthFrom), GrowthPower);
-        return new Disc(radius, area, scale);
+        /// <summary>
+        /// The fan for an eye looking at <paramref name="target"/>, <paramref name="distance"/> from it.
+        /// </summary>
+        public static Fan Of(Vector3 eye, Vector3 target, float distance)
+        {
+            float heading = MathF.Atan2(target.Z - eye.Z, target.X - eye.X);
+            float range = Math.Clamp(distance * RangePerDistance, MinRange, MaxRange);
+            return new Fan(eye, heading, range);
+        }
     }
 
     /// <summary>
@@ -202,19 +199,22 @@ sealed class RainSplashes(GameHost host)
     static int AllFloors(string placementKey) => int.MaxValue;
 
     /// <summary>
-    /// One drop at a random place in the disc round <paramref name="centre"/>, on the highest surface there (<see cref="Surface"/>); none inside a
-    /// building (on a floor under its roof) or where the terrain is not loaded.
+    /// One drop at a random place in the fan (its distance uniform, so they are thicker near the camera and about as thick on screen far off), on
+    /// the highest surface there (<see cref="Surface"/>), grown with its distance from the eye; none inside a building (on a floor under its
+    /// roof) or where the terrain is not loaded.
     /// </summary>
-    void Splash(ParticleRenderer particles, Vector3 centre, Disc disc)
+    void Splash(ParticleRenderer particles, Fan fan)
     {
-        float angle = Random.Shared.NextSingle() * MathF.Tau, reach = disc.Radius * MathF.Sqrt(Random.Shared.NextSingle());
-        float x = centre.X + (reach * MathF.Cos(angle)), z = centre.Z + (reach * MathF.Sin(angle));
+        float angle = fan.Heading + ((Random.Shared.NextSingle() * 2 - 1) * HalfFan * MathF.PI / 180);
+        float reach = fan.Range * Random.Shared.NextSingle();
+        float x = fan.Eye.X + (reach * MathF.Cos(angle)), z = fan.Eye.Z + (reach * MathF.Sin(angle));
         if (Surface(x, z) is not { } surface) return;
 
         var (at, water) = surface;
         if (host.ActiveObjects?.InteriorAt(at + new Vector3(0, HullTestHeight, 0)) is not null) return;
 
-        float size = (water ? WaterSize : GroundSize) * disc.Scale, life = water ? WaterLife : GroundLife;
+        float growth = MathF.Pow(Math.Max(1, Vector3.Distance(fan.Eye, at) / GrowthFrom), GrowthPower);
+        float size = (water ? WaterSize : GroundSize) * growth, life = water ? WaterLife : GroundLife;
         particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life, Grey);
     }
 }
