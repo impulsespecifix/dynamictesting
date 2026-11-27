@@ -63,15 +63,17 @@ sealed class RainSplashes(GameHost host)
     /// <summary>
     /// The grey the splashes take in place of the crown textures' white (a burst's recolour) in full daylight: between the rain streaks' colour
     /// (0.32, <c>kenshi_rain1</c> and <c>Kenshi_Heavy_Rain</c>), which left the faint, small crowns unseen, and 2, which the owner found too far
-    /// from the rain's (**Observed**, night test runs at a boom of 1500: at 0.6 and 1 barely a dot, at 2 small grey crowns).
+    /// from the rain's; at 1.2 (half the night's dimming) the owner still saw none on a platform at ground level at night (**Observed**, night test
+    /// runs: at a boom of 1500, 0.6 and 1 barely a dot and 2 small grey crowns; at a boom of 40 on the Hub's platform, 1.6 with a quarter of the
+    /// dimming small grey crowns).
     /// </summary>
-    const float RainGrey = 1.2f;
+    const float RainGrey = 1.6f;
 
     /// <summary>
     /// How much of the sprites' ambient (the rain's dimming at dusk and night, 0.1..1) the grey takes: some, so they dim with the rain but stay
     /// in sight (all of it left a tenth of the light at night).
     /// </summary>
-    const float AmbientShare = 0.5f;
+    const float AmbientShare = 0.25f;
 
     /// <summary>
     /// The seconds a splash's unit emits (its emitters run 0.2 to 0.5 s and stop).
