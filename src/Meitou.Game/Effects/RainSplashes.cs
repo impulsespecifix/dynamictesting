@@ -189,14 +189,14 @@ sealed class RainSplashes(GameHost host)
     const float MaxStep = 0.1f;
 
     /// <summary>
-    /// The height the feature ray starts from: above anything placed.
-    /// </summary>
-    const float FromAbove = 1e6f;
-
-    /// <summary>
     /// The height above a point the building hull test is made at.
     /// </summary>
     const float HullTestHeight = 2;
+
+    /// <summary>
+    /// What the rain meets first round the camera: hides the camera rain's drops under an overhang.
+    /// </summary>
+    readonly RainCover _cover = new();
 
     /// <summary>
     /// The splashes owed but not yet started (the fraction carried from frame to frame).
@@ -229,6 +229,8 @@ sealed class RainSplashes(GameHost host)
         }
 
         if (!_prepared || particles.Library.FindSystem(WaterSystem) is null) Prepare(particles);
+        if (host.ActiveObjects is { } objects) _cover.Update(host.Camera.Eye, objects);
+        particles.RainCovered ??= _cover.Covered;
 
         _owed += Math.Min(rain * PerRain, MaxPerSecond) * seconds;
         int count = Math.Min((int)_owed, MaxPerFrame);
@@ -277,10 +279,9 @@ sealed class RainSplashes(GameHost host)
     }
 
     /// <summary>
-    /// The highest surface the rain meets at (<paramref name="x"/>, <paramref name="z"/>): the terrain, the water above it, a building's floors and
-    /// roofs (every floor of it, <see cref="Rendering.Objects.WorldObjectRenderer.FloorHeightAt"/>) or a map feature's top (rocks and the like,
-    /// <see cref="Rendering.Objects.WorldObjectRenderer.FeatureHeightBelow"/>), whichever is highest, and whether it is the water; null where the
-    /// terrain is not loaded.
+    /// The highest surface the rain meets at (<paramref name="x"/>, <paramref name="z"/>): the terrain, the water above it, or a building's floors
+    /// and roofs or a map feature's top where they stand higher, an overhang included
+    /// (<see cref="Rendering.Objects.WorldObjectRenderer.CoverTopAt"/>), and whether it is the water; null where the terrain is not loaded.
     /// </summary>
     (Vector3 At, bool Water)? Surface(float x, float z)
     {
@@ -289,23 +290,14 @@ sealed class RainSplashes(GameHost host)
 
         float top = Math.Max(ground, WorldWater.Height);
         bool water = WorldWater.Height > ground;
-        if (host.ActiveObjects is { } objects)
+        if (host.ActiveObjects?.CoverTopAt(x, z) is { } solid && solid > top)
         {
-            float solid = Math.Max(objects.FloorHeightAt(x, z, AllFloors) ?? top, objects.FeatureHeightBelow(x, z, FromAbove) ?? top);
-            if (solid > top)
-            {
-                top = solid;
-                water = false;
-            }
+            top = solid;
+            water = false;
         }
 
         return (new Vector3(x, top, z), water);
     }
-
-    /// <summary>
-    /// Every floor of every building (the floors' filter of <see cref="Rendering.Objects.WorldObjectRenderer.FloorHeightAt"/>).
-    /// </summary>
-    static int AllFloors(string placementKey) => int.MaxValue;
 
     /// <summary>
     /// One drop at a random place in the fan (its distance uniform, so they are thicker near the camera and about as thick on screen far off), on

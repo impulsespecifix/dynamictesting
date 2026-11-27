@@ -1632,6 +1632,19 @@ public sealed unsafe partial class WorldObjectRenderer : IDisposable
     public float? FeatureHeightBelow(float x, float z, float top) => _objects.FeatureFloors.HighestBelow(x, z, top);
 
     /// <summary>
+    /// The highest surface of any building (floors, stairs, roofs) or map feature at a point: what rain falling there meets first, an overhang
+    /// included; null for none or still being made (Meitou's rain cover).
+    /// </summary>
+    public float? CoverTopAt(float x, float z)
+    {
+        float? building = _objects.Floors.HighestTopAt(x, z), feature = _objects.FeatureFloors.HighestBelow(x, z, float.MaxValue);
+        if (building is null) return feature;
+        if (feature is null) return building;
+
+        return Math.Max(building.Value, feature.Value);
+    }
+
+    /// <summary>
     /// The loaded mask of a building or one of its layout objects (building id / item id).
     /// </summary>
     internal InteriorVolume? InteriorFor(string placementId)

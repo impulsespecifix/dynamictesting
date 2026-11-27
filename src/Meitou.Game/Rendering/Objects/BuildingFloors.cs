@@ -119,6 +119,18 @@ sealed class BuildingFloors(WorldObjects objects)
     }
 
     /// <summary>
+    /// The highest floor, stairs or roof part of any building at (<paramref name="x"/>, <paramref name="z"/>), or null for none: what rain meets
+    /// first there (<see cref="FloorSurfaces.TopAt"/>).
+    /// </summary>
+    public float? HighestTopAt(float x, float z)
+    {
+        float? best = null;
+        foreach (var (_, surfaces) in Near(x, z))
+            if (surfaces.TopAt(x, z) is { } h && (best is null || h > best)) best = h;
+        return best;
+    }
+
+    /// <summary>
     /// The highest ordinary floor part (no stairs) of any building at (<paramref name="x"/>, <paramref name="z"/>) on floors up to
     /// <paramref name="floorOf"/> of its key, or null for none.
     /// </summary>

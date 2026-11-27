@@ -298,6 +298,11 @@ The optional row "Rain drops and puddles" (`WeatherSurfaces.WetWorld`, `uWetWorl
 - Wind-driven rain (`EffectGroup.RainWindPush`, testing only): the camera rain's drops (`CAMERA_RAIN`, `CAMERA_ACID_RAIN`; the game's rain
   effects are not `wind affected`) take 0.8 of the weather's wind velocity as they are emitted (`ParticleEnvironment.WindPush`), so the
   streaks, oriented along their velocity, slant and drift with the wind.
+- Rain cover (`RainCover`, testing only): what the rain meets first round the camera, a grid of 4-unit cells 320 units across centred on the
+  eye, each the highest building surface (floors, stairs, unwalkable roofs: `FloorSurfaces.TopAt`) or map feature top there
+  (`WorldObjectRenderer.CoverTopAt`), refreshed 200 cells a frame (**Observed**, a Heavy_Rain test run: 400 a frame cost 0.73 ms). The camera
+  rain's drops more than 1 unit under a cell's top are not drawn (`ParticleRenderer.RainCovered`), and a splash lands on the highest surface,
+  an overhang's top included. Trees and other foliage have no collision and give no cover.
 - Raindrop splashes (`RainSplashes`, testing only): while it rains at the camera, drops land at random in a fan from the ground under the eye within 80° of the camera's heading,
   out to three times the eye's distance from its target within 150 to 800 m (at ground level 150 m: the owner asked for a much longer range
   than the few metres round the camera), uniform in distance so thicker near the camera; 10 a second per point of rain level (1000 at rain
@@ -305,8 +310,8 @@ The optional row "Rain drops and puddles" (`WeatherSurfaces.WetWorld`, `uWetWorl
   `Footsplash` crown billboards, additive and unlit as the game's rain) recoloured a cool grey (0.5225, 0.5415, 0.57: 5 % under 0.55, 0.57, 0.6, a touch too white) by day and night (the rain's own grey and its night dimming left them unseen; smaller and dimmer
   ones were tried and the owner chose this look back), as a burst at 0.25 of its size on the terrain; where the water (`WorldWater.Height`) is above the terrain, at 0.35, Meitou's own
   `meitou_rain_water_splash` instead (from the game's materials: a flat `Wade-base` foam ring on the water widening and fading over 0.6 s, a
-  thin `Kenshi-rainsplash_Basepart` jet for 0.25 s, a small `Footsplash[A]` crown for 0.2 s); or on what stands higher there: a building's floors and roofs (every floor,
-  `WorldObjectRenderer.FloorHeightAt`) or a map feature's top (`FeatureHeightBelow`); each growing with its own distance from the eye past 400 by (distance / 400) to the power 0.75, so on screen they shrink
+  thin `Kenshi-rainsplash_Basepart` jet for 0.25 s, a small `Footsplash[A]` crown for 0.2 s); or on what stands higher there: a building's floors and roofs or a map feature's top
+  (`WorldObjectRenderer.CoverTopAt`, overhangs included); each growing with its own distance from the eye past 400 by (distance / 400) to the power 0.75, so on screen they shrink
   slowly far off (1 kept one size on screen, owner); on the surface itself (lifted off it read wrong to the owner); none inside a building's hull
   (`InteriorAt` 2 units over the surface: a floor under a roof), the scene's depth hiding those under what the floor queries miss (**Observed**,
   test run in Heavy_Rain at a boom of 2000 over the Hub: splashes on the gate tower's platform and the walkways too); none with the eye over 6000 units from its target.

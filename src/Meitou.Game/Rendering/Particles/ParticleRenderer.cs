@@ -1089,6 +1089,7 @@ public sealed unsafe class ParticleRenderer : IDisposable
                 // frame.
                 int written = sim.Collect(t, _scratch.AsSpan(0, n), material.Blend == ParticleBlend.Add ? u.Tint * shown : u.Tint,
                     EffectOpacity(u.Effect.Name) * shown, offset, Math.Min(u.Pending, MaxDrawAhead));
+                if (rain && RainCovered is { } covered) written = DropCovered(_scratch.AsSpan(0, written), eye, covered);
                 if (written == 0) continue;
                 int close = PartitionByDepth(_scratch.AsSpan(0, written), forward, nearPlane);
 
@@ -1155,6 +1156,23 @@ public sealed unsafe class ParticleRenderer : IDisposable
         }
 
         units.Sort((a, b) => b.Unit.DistanceToCamera.CompareTo(a.Unit.DistanceToCamera));
+    }
+
+    /// <summary>
+    /// Leaves out the collected particles (eye-relative, <paramref name="eye"/> added back) that <paramref name="covered"/> says are under cover,
+    /// keeping the rest in order; returns how many are left.
+    /// </summary>
+    static int DropCovered(Span<ParticleInstance> particles, Vector3 eye, Func<Vector3, bool> covered)
+    {
+        int kept = 0;
+        for (int i = 0; i < particles.Length; i++)
+        {
+            if (covered(particles[i].Position + eye)) continue;
+
+            particles[kept++] = particles[i];
+        }
+
+        return kept;
     }
 
     /// <summary>
@@ -1352,6 +1370,12 @@ public sealed unsafe class ParticleRenderer : IDisposable
     /// The sprites' ambient light from the sun's height.
     /// </summary>
     float _frameAmbient;
+
+    /// <summary>
+    /// Meitou's rain cover (<see cref="Effects.RainCover"/>): whether a world point is under an overhang; the camera rain's drops there are not
+    /// drawn. Null: none hidden.
+    /// </summary>
+    internal Func<Vector3, bool>? RainCovered { get; set; }
     /// <summary>
     /// Whether this frame's draws have not yet been written into the reactive mask.
     /// </summary>

@@ -32,6 +32,26 @@ public sealed partial class FloorSurfaces
     }
 
     /// <summary>
+    /// The height of the highest floor, stairs or unwalkable roof triangle at (<paramref name="x"/>, <paramref name="z"/>) on any floor, or null:
+    /// the building's top there, what rain falling on the point meets first (Meitou's rain cover, <c>RainCover</c>).
+    /// </summary>
+    public float? TopAt(float x, float z)
+    {
+        float best = float.NegativeInfinity;
+        var q = new Vector2(x, z);
+        foreach (var list in (ReadOnlySpan<List<Surface>>)[_surfaces, _roofs])
+            foreach (var s in list)
+            {
+                if (q.X < s.Min.X || q.Y < s.Min.Y || q.X > s.Max.X || q.Y > s.Max.Y || s.YMax <= best) continue;
+
+                foreach (int i in s.Grid.At(q))
+                    if (HeightAt(s.Corners[i], s.Corners[i + 1], s.Corners[i + 2], q) is { } y && y > best) best = y;
+            }
+
+        return float.IsNegativeInfinity(best) ? null : best;
+    }
+
+    /// <summary>
     /// The height of the highest ordinary part's triangle (no stairs) at (<paramref name="x"/>, <paramref name="z"/>) on floors up to
     /// <paramref name="floor"/>, or null: the building's ground for the strategy camera (docs/formats/camera.md "Height").
     /// </summary>
