@@ -25,8 +25,9 @@ over atmosphere/stars/planets before weather fog, with geometry drawn over the s
 
 ## Fair-weather puffs
 
-Meitou (engine choice, testing only; `SkyRenderer.FairWeatherClouds`): the volume is drawn with a density of 0.25 at least in any weather,
-so a clear sky keeps a few scattered puffs (one or two in a 16:9 view 15° up, **Observed**, offscreen Vulkan renders at six places); an
+Meitou (engine choice, testing only; `SkyRenderer.FairWeatherClouds`): the volume is drawn with a density of 0.15 at least in any weather,
+so a clear sky keeps the odd small puff (one small puff or a faint distant wisp in most 16:9 views 15° up, none in some, **Observed**,
+offscreen Vulkan renders at eight places); an
 explicit `CloudCoverage` (`--clouds`, the title screen) is drawn as given. The volume is therefore marched in clear weather too.
 
 ## Cloud for the rain

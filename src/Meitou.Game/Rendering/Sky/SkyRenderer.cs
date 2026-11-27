@@ -1463,10 +1463,10 @@ public sealed unsafe class SkyRenderer : IDisposable
     CloudSlab Slab() => new(CloudHeight, VolumeDensity, CloudLayer.TextureShift(_cloudOffset));
 
     /// <summary>
-    /// The least density the volume is drawn with in any weather (Meitou, testing only): a clear sky keeps a few fair-weather puffs (about 3 % of
-    /// the sky). Not under an explicit <see cref="CloudCoverage"/> (<c>--clouds</c>, the title screen), which is drawn as given.
+    /// The least density the volume is drawn with in any weather (Meitou, testing only): a clear sky keeps the odd small fair-weather puff (the very
+    /// least that still shows: about 2 % of the sky). Not under an explicit <see cref="CloudCoverage"/> (<c>--clouds</c>, the title screen), which is drawn as given.
     /// </summary>
-    const float FairWeatherClouds = 0.25f;
+    const float FairWeatherClouds = 0.15f;
 
     /// <summary>
     /// The density the volume is drawn with: <see cref="CloudDensity"/>, at least <see cref="FairWeatherClouds"/> unless the coverage is overridden.
