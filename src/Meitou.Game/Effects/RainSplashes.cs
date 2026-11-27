@@ -62,9 +62,9 @@ sealed class RainSplashes(GameHost host)
 
     /// <summary>
     /// The colour the splashes take in place of the crown textures' white (a burst's recolour): a cool grey, the same by day and night (the
-    /// rain's own grey and night dimming left them unseen; 0.55, 0.57, 0.6 a touch too white, owner).
+    /// rain's own grey and night dimming left them unseen; 0.55, 0.57, 0.6 a touch too white: 5 % less, owner).
     /// </summary>
-    static readonly Vector3 Grey = new(0.5f, 0.51f, 0.54f);
+    static readonly Vector3 Grey = new(0.5225f, 0.5415f, 0.57f);
 
     /// <summary>
     /// The seconds a splash's unit emits (its emitters run 0.2 to 0.5 s and stop).
