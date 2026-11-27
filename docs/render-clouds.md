@@ -32,7 +32,9 @@ darkened deck without towers) is for the storm weathers alone (`rain intensity` 
 shapes and the fair-weather light. The rain, its sound and the simulation's weather are the game's.
 
 The rain sheets (pale veils under the deck, `RainSheets`) are for the storm weathers alone (`rain intensity` ≥ 60: `Heavy_Rain`,
-`misty rain`), coming and going over 20 s with the weather; light rain has none (`SkyClouds.RainSheets`).
+`misty rain`), coming and going over 20 s with the weather; light rain has none (`SkyClouds.RainSheets`). Their gusts start 100 m from the eye and are
+full from 300 m, their light is the clouds' ambient (×1) and their opacity at most 0.65, so moving through one does not flood the screen with
+the veil's light (`RainSheetShaders`).
 
 ## Temporal, fog and shadows
 

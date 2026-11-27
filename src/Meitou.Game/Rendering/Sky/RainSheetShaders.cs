@@ -10,7 +10,8 @@ public static class RainSheetShaders
 {
     /// <summary>
     /// The pass: along each pixel's ray from 15 m to 3 km (or the scene's depth), sixteen jittered samples spaced by a constant ratio, of a thin
-    /// base veil and gust bands (long across the wind, a few hundred metres thick) carried along the wind at 15 m/s, some gusts much denser than
+    /// base veil and gust bands (none within 100 m, coming in by 300 m, so the camera never stands inside one: a gust passing over it filled the
+    /// whole screen with the veil's light and the picture jumped between that and the dark storm) (long across the wind, a few hundred metres thick) carried along the wind at 15 m/s, some gusts much denser than
     /// others, fading with height above the eye; fine slanted falling streaks within 100 m. Behind them a rain haze greys the distance (half gone
     /// at 2 km). The veils are lit by the sky's light, so they lighten and grey what is behind them.
     /// </summary>
@@ -28,13 +29,14 @@ public static class RainSheetShaders
         uniform vec2 uSheetWind;                // the way the rain drifts (unit, world x and z)
         // World units are about a decimetre.
         const float SHEET_NEAR = 150.0, SHEET_FAR = 30000.0;   // 15 m (the particles' rain is nearer) to 3 km
+        const float SHEET_CLEAR = 1000.0, SHEET_CLEAR_END = 3000.0;   // no gusts within 100 m, full from 300 m: the camera is never inside one
         const int SHEET_STEPS = 16;
         const float SHEET_EXTINCTION = 0.00035;   // per unit at density 1: a dense gust ~200 m out hides about half of what is behind it
         const float SHEET_BASE = 0.02;            // the veil between gusts: 10-20 % over the whole range
-        const float SHEET_MAX_OPACITY = 0.8;
+        const float SHEET_MAX_OPACITY = 0.65;
         const float SHEET_GUST_SPEED = 150.0;     // 15 m/s along the wind
         const float SHEET_HAZE = 0.0000347;       // the rain haze beyond: half gone at 2 km
-        const float SHEET_LIGHT = 1.5;            // the veils' light, of the clouds' ambient (after the storm's dimming)
+        const float SHEET_LIGHT = 1.0;            // the veils' light, of the clouds' ambient (after the storm's dimming): no brighter than the storm
         const vec3 SHEET_TINT = vec3(0.88, 0.91, 0.96);   // cool white-grey
 
         // The gusts at a point: bands facing the wind (about four times longer across it than they are thick along it), carried downwind,
@@ -47,7 +49,8 @@ public static class RainSheetShaders
             float gust = smoothstep(0.47, 0.62, band);
             float swell = cloudNoise(vec3(u / 80000.0, 0.53, v / 80000.0)).b;
             float height = 1.0 - smoothstep(2000.0, 6000.0, q.y - uEye.y);
-            return (SHEET_BASE + gust * mix(0.3, 1.6, swell)) * height;
+            float clear = smoothstep(SHEET_CLEAR, SHEET_CLEAR_END, length(q - uEye));
+            return (SHEET_BASE + gust * mix(0.3, 1.6, swell) * clear) * height;
         }
 
         // Fine streaks within 100 m: falling at 9 m/s and slanted downwind (lower down, further along); 1 beyond.
