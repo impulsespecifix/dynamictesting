@@ -443,6 +443,9 @@ sealed class DevConsoleHost(GameHost host)
         Add("weather-sim", "weather-sim <none|dust|acid|off>", "what the simulation reads as the weather everywhere (affect type only; the sky keeps "
             + "its own weather); off = the schedule's", ConsoleWeatherSim);
 
+        Add("cloud-rain", "cloud-rain", "the rain under the cloud: how much falls at the camera, the cover over the eye and on screen, the "
+            + "coverage floor", ConsoleCloudRain);
+
         Add("flies", "flies", "every dead character: id, position, flies, the weather there; and the fly effects shown", ConsoleFlies);
 
         Add("editor", "editor [yawDegrees [elevationDegrees]]", "opens the character editor (the recruit form: appearance only) on the player squad's "
@@ -836,6 +839,23 @@ sealed class DevConsoleHost(GameHost host)
 
         Send(t => new DebugKill(selected) { Tick = t });
         con.Print($"killed {selected.Length}");
+    }
+
+    /// <summary>
+    /// The <c>cloud-rain</c> command (usage and help at its registration in <see cref="RegisterConsoleCommands"/>).
+    /// </summary>
+    void ConsoleCloudRain(IReadOnlyList<string> args, DevConsole con)
+    {
+        if (host.Gpu is null)
+        {
+            con.Error("no world yet");
+            return;
+        }
+
+        var rain = host.Gpu.Sky.Clouds.Rain;
+        var (overhead, screen, rays, target) = rain.Last;
+        con.Print($"rain falling {rain.UnderCloud:0.00} (target {target:0.00}); cover overhead {overhead:0.00}, on screen {screen:0.00} "
+            + $"({rays} of 25 rays see the sky); coverage floor {rain.Floor:0.00}");
     }
 
     /// <summary>

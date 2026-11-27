@@ -29,7 +29,7 @@ public sealed class CloudRain
     /// <summary>
     /// The mean cover (<see cref="CloudCover.At"/>) the rain starts at and the one it is full at: broken cloud lets little through.
     /// </summary>
-    const float RainFrom = 0.35f, RainFull = 0.85f;
+    const float RainFrom = 0.55f, RainFull = 0.9f;
 
     /// <summary>
     /// The screen positions (each axis, -1..1 edge to edge) of the rays cast through the view to the cloud base: a 5 × 5 grid.
@@ -66,6 +66,12 @@ public sealed class CloudRain
     /// When the last update ran (<see cref="System.Diagnostics.Stopwatch"/> ticks; 0: never).
     /// </summary>
     long _ticks;
+
+    /// <summary>
+    /// The last reading (for the <c>cloud-rain</c> console command): the cover over the eye, the mean cover where the screen's rays that see the
+    /// sky meet the cloud base (NaN with none), how many did, and the rain it gave before the smoothing.
+    /// </summary>
+    public (float Overhead, float Screen, int SkyRays, float Target) Last { get; private set; }
 
     /// <summary>
     /// The least coverage the volume is drawn with now (0 without rain).
@@ -111,7 +117,9 @@ public sealed class CloudRain
     {
         _cover ??= new CloudCover();
         var eye = sky.View.Eye;
-        float sum = OverheadWeight * _cover.At(eye.X, eye.Z, sky.Coverage, sky.Shift), weight = OverheadWeight;
+        float overhead = _cover.At(eye.X, eye.Z, sky.Coverage, sky.Shift);
+        float screen = 0;
+        int rays = 0;
         float height = Math.Max(sky.Base - eye.Y, 1000);
         foreach (float sy in ScreenSteps)
             foreach (float sx in ScreenSteps)
@@ -121,12 +129,15 @@ public sealed class CloudRain
                 if (ray.Y < MinRaySlope || reach > VolumetricClouds.MaxDistance) continue;
 
                 var at = eye + (ray * reach);
-                sum += _cover.At(at.X, at.Z, sky.Coverage, sky.Shift);
-                weight++;
+                screen += _cover.At(at.X, at.Z, sky.Coverage, sky.Shift);
+                rays++;
             }
 
-        float t = Math.Clamp(((sum / weight) - RainFrom) / (RainFull - RainFrom), 0, 1);
-        return t * t * (3 - (2 * t));
+        float mean = ((OverheadWeight * overhead) + screen) / (OverheadWeight + rays);
+        float t = Math.Clamp((mean - RainFrom) / (RainFull - RainFrom), 0, 1);
+        float rain = t * t * (3 - (2 * t));
+        Last = (overhead, rays > 0 ? screen / rays : float.NaN, rays, rain);
+        return rain;
     }
 }
 

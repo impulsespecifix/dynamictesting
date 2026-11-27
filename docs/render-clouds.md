@@ -32,9 +32,9 @@ coverage is held at 0.7 at least (in over 10 s, out as long), which leaves about
 storm weathers alone (`rain intensity` ≥ 60), in and out over 20 s; light rain keeps its cloud shapes and the fair-weather light. The rain then falls as the
 cloud over the camera and on screen allows: the mean of the cover straight over the eye (weight 2) and of the cover where each of 25 rays
 through the screen (a 5 × 5 grid) meets the cloud base, for the rays that rise at least 0.03 and meet it within 500 000 units (weight 1 each;
-with none, the cover overhead alone), 0 at 0.35 to 1 at 0.85 (smoothstep: broken cloud lets little through; a gap on screen, looking up
+with none, the cover overhead alone), 0 at 0.55 to 1 at 0.9 (smoothstep: broken cloud lets little through; a gap on screen, looking up
 into it included, stops the rain even with cloud overhead), smoothed over 3 s, scales the camera rain's emission (`EffectWorld.RainEmission`) and the rain's sound (`AmbienceInput.RainWithheld`).
-Without the volume (clouds off, the game's flat layer) the rain falls everywhere. The simulation's weather (wetness, rain collectors, farms)
+The dev console's `cloud-rain` prints the reading. Without the volume (clouds off, the game's flat layer) the rain falls everywhere. The simulation's weather (wetness, rain collectors, farms)
 is unchanged.
 
 The rain sheets (pale veils under the deck, `RainSheets`) are for the storm weathers alone (`rain intensity` ≥ 60: `Heavy_Rain`,
