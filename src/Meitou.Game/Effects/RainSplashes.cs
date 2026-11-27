@@ -7,11 +7,11 @@ namespace Meitou.Game.Effects;
 
 /// <summary>
 /// Meitou's raindrop splashes (docs/formats/weather.md "Rain splashes"; testing only, engine choice): while it rains, drops landing round the
-/// camera throw up a small grey splash, the game's own foot-splash system (<see cref="System"/>) at an eighth of its size, on the terrain or,
+/// camera throw up a small grey splash, the game's own foot-splash system (<see cref="System"/>) at a quarter of its size, on the terrain or,
 /// where the water is higher, a little larger on the water, or on a building's floors and roofs and on rocks where they are higher. As many as the
 /// rain is heavy; none inside a building's hull, and the scene's depth hides those under what the floor queries miss. The disc they land in
 /// grows with the camera's distance from its target (<see cref="Spread"/>); the splashes keep their size, so far off they are small. Additive,
-/// grey, dimmed with the rain's ambient. Display only.
+/// a cool grey. Display only.
 /// </summary>
 sealed class RainSplashes(GameHost host)
 {
@@ -49,25 +49,17 @@ sealed class RainSplashes(GameHost host)
     const float MaxEyeDistance = 6000;
 
     /// <summary>
-    /// A splash's size and life against the foot splash's, on the ground and on the water, : an eighth of a foot
-    /// splash, as the owner asked after seeing them in the game (a drop's true size, a tenth, was under a pixel at the game's camera distances;
-    /// **Observed**, test runs at a boom of 500, 1500 and 2000).
+    /// A splash's size and life against the foot splash's, on the ground and on the water: a quarter of a foot splash (a drop's true size, a
+    /// tenth, was under a pixel at the game's camera distances; **Observed**, test runs at a boom of 500, 1500 and 2000). The owner chose this
+    /// look back (f7d78ce48's) after trying smaller and dimmer ones.
     /// </summary>
-    const float GroundSize = 0.12f, WaterSize = 0.17f, GroundLife = 1, WaterLife = 1;
+    const float GroundSize = 0.25f, WaterSize = 0.35f, GroundLife = 1, WaterLife = 1;
 
     /// <summary>
-    /// The grey the splashes take in place of the crown textures' white (a burst's recolour) in full daylight: between the rain streaks' colour
-    /// (0.32, <c>kenshi_rain1</c> and <c>Kenshi_Heavy_Rain</c>), which left the faint, small crowns unseen, and 2, which the owner found too far
-    /// from the rain's; 1.6 with a quarter of the night's dimming read too noticeable, 1.2 still too white; the owner then set 0.88 (**Observed**, night test
-    /// runs at a boom of 1500: at 0.6 and 1 barely a dot, at 2 small grey crowns).
+    /// The colour the splashes take in place of the crown textures' white (a burst's recolour): a cool grey, the same by day and night (the
+    /// rain's own grey and night dimming left them unseen).
     /// </summary>
-    const float RainGrey = 0.88f;
-
-    /// <summary>
-    /// How much of the sprites' ambient (the rain's dimming at dusk and night, 0.1..1) the grey takes: some, so they dim with the rain but stay
-    /// in sight (all of it left a tenth of the light at night).
-    /// </summary>
-    const float AmbientShare = 0.5f;
+    static readonly Vector3 Grey = new(0.55f, 0.57f, 0.6f);
 
     /// <summary>
     /// The seconds a splash's unit emits (its emitters run 0.2 to 0.5 s and stop).
@@ -217,8 +209,6 @@ sealed class RainSplashes(GameHost host)
         if (host.ActiveObjects?.InteriorAt(at + new Vector3(0, HullTestHeight, 0)) is not null) return;
 
         float size = water ? WaterSize : GroundSize, life = water ? WaterLife : GroundLife;
-        // The rain's material takes the sprites' ambient (darker at dusk and night) and the splash's does not: the grey takes it instead.
-        var grey = new Vector3(RainGrey * float.Lerp(1, particles.SpriteAmbient, AmbientShare));
-        particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life, grey);
+        particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life, Grey);
     }
 }
