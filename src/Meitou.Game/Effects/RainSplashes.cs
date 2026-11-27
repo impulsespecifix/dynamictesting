@@ -7,7 +7,7 @@ namespace Meitou.Game.Effects;
 
 /// <summary>
 /// Meitou's raindrop splashes (docs/formats/weather.md "Rain splashes"; testing only, engine choice): while it rains, drops landing round the
-/// camera's target throw up a small splash, the game's own foot-splash system (<see cref="System"/>) at half its size, on the terrain or,
+/// camera's target throw up a small grey splash, the game's own foot-splash system (<see cref="System"/>) at a quarter of its size, on the terrain or,
 /// where the water is higher, a little larger on the water. As many as the rain is heavy; none inside a building's hull, and the scene's depth
 /// hides those under floors. The game's camera stands up to 200 m (a boom of 2000) from its target, where a drop-sized splash is under a pixel,
 /// so the disc and the splashes grow with that distance (<see cref="Spread"/>). Drawn as the game draws its rain, additive and unlit. Display only.
@@ -20,10 +20,10 @@ sealed class RainSplashes(GameHost host)
     const string System = "Footsplashes01";
 
     /// <summary>
-    /// Splashes a second per point of rain level (0..100) in the least disc: 150 a second in a full storm, 60 in full light rain (a wider disc gets
+    /// Splashes a second per point of rain level (0..100) in the least disc: 300 a second in a full storm, 120 in full light rain (a wider disc gets
     /// more, as many per area, up to <see cref="MaxPerSecond"/>).
     /// </summary>
-    const float PerRain = 1.5f;
+    const float PerRain = 3;
 
     /// <summary>
     /// The least radius round the camera's target the drops land in (about 35 m), and the most.
@@ -47,10 +47,16 @@ sealed class RainSplashes(GameHost host)
     const float MaxEyeDistance = 6000;
 
     /// <summary>
-    /// A splash's size and life against the foot splash's, on the ground and on the water, up to <see cref="TrueSizeDistance"/>: half a foot
-    /// splash (a drop's true size, a tenth, was under a pixel at the game's camera distances; **Observed**, test runs at a boom of 500 and 2000).
+    /// A splash's size and life against the foot splash's, on the ground and on the water, up to <see cref="TrueSizeDistance"/>: a quarter of a foot
+    /// splash (a drop's true size, a tenth, was under a pixel at the game's camera distances; **Observed**, test runs at a boom of 500
+    /// and 2000; half a foot splash read too large to the owner).
     /// </summary>
-    const float GroundSize = 0.5f, WaterSize = 0.7f, GroundLife = 1, WaterLife = 1;
+    const float GroundSize = 0.25f, WaterSize = 0.35f, GroundLife = 1, WaterLife = 1;
+
+    /// <summary>
+    /// The colour the splashes take in place of the crown textures' white (a burst's recolour): a cool grey, as the rain's own streaks.
+    /// </summary>
+    static readonly Vector3 Grey = new(0.55f, 0.57f, 0.6f);
 
     /// <summary>
     /// The seconds a splash's unit emits (its emitters run 0.2 to 0.5 s and stop).
@@ -60,12 +66,12 @@ sealed class RainSplashes(GameHost host)
     /// <summary>
     /// The most splashes started in one frame (a stall, or a wide disc, does not throw a crowd at once).
     /// </summary>
-    const int MaxPerFrame = 24;
+    const int MaxPerFrame = 48;
 
     /// <summary>
     /// The most splashes a second, however wide the disc (each is a particle unit of its own).
     /// </summary>
-    const float MaxPerSecond = 400;
+    const float MaxPerSecond = 800;
 
     /// <summary>
     /// The longest frame step the spawn clock takes, seconds.
@@ -162,6 +168,6 @@ sealed class RainSplashes(GameHost host)
         if (host.ActiveObjects?.InteriorAt(at + new Vector3(0, HullTestHeight, 0)) is not null) return;
 
         float size = (water ? WaterSize : GroundSize) * disc.Scale, life = water ? WaterLife : GroundLife;
-        particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life);
+        particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life, Grey);
     }
 }
