@@ -28,7 +28,9 @@ over atmosphere/stars/planets before weather fog, with geometry drawn over the s
 Meitou (engine choice, testing only; `CloudRain`): the game's camera rain (`CAMERA_RAIN`, `CAMERA_ACID_RAIN`) falls round the camera wherever it
 is in the region, so while the rain level is above 0 the volume's coverage is held at 0.9 at least (near overcast: above 0.75 every place has
 some cover, `smoothstep(0.75, 1, coverage)`), in over 10 s as the rain starts and out as it ends. The storm (`SkyClouds.Storm`: the closed,
-darkened deck without towers) is for the storm weathers alone (`rain intensity` ≥ 60), in and out over 20 s; light rain keeps the clouds'
+darkened deck without towers) is for the storm weathers alone (`rain intensity` ≥ 60), in and out over 20 s. It dims the world's light
+(`SkyRenderer.RebuildPhysical`): by day the sun to 0.15 and the ambient to 0.5, at night (sun height below −0.1; linear to day at 0.1) the
+planet's light to 0.6 and the ambient to 0.85, since the night is dark already. Light rain keeps the clouds'
 shapes and the fair-weather light. The rain, its sound and the simulation's weather are the game's.
 
 The rain sheets (pale veils under the deck, `RainSheets`) are for the storm weathers alone (`rain intensity` ≥ 60: `Heavy_Rain`,

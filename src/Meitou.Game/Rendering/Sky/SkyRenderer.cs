@@ -146,10 +146,20 @@ public sealed unsafe class SkyRenderer : IDisposable
     float _builtStorm;
 
     /// <summary>
-    /// What is left of the world's sun light, and of its ambient, under a full storm (<see cref="SkyClouds.Storm"/>; the cloud shadow map darkens
-    /// the sun further where it reaches).
+    /// What is left of the world's sun light, and of its ambient, under a full storm by day (<see cref="SkyClouds.Storm"/>; the cloud shadow map
+    /// darkens the sun further where it reaches).
     /// </summary>
     const float StormSunLight = 0.15f, StormAmbient = 0.5f;
+
+    /// <summary>
+    /// The same at night, of the planet's light and the night ambient: the night is dark already, and the day's dimming left it near black.
+    /// </summary>
+    const float StormNightLight = 0.6f, StormNightAmbient = 0.85f;
+
+    /// <summary>
+    /// The sun heights between which the storm's dimming turns from the night's to the day's (twilight).
+    /// </summary>
+    const float StormNightBelow = -0.1f, StormDayAbove = 0.1f;
 
     /// <summary>
     /// A physical state was built (false after a simple one): the next physical prepare builds again.
@@ -1090,10 +1100,12 @@ public sealed unsafe class SkyRenderer : IDisposable
         var lightDir = KenshiLighting.LightDirection(sun);
         // The ambient stays the game's: its factor comes from the sun's own (clamped) direction, never the planet's, whose height of 12 degrees
         // would raise the night ambient fivefold. The ambient sliders scale it. Under a storm (Meitou) both dim.
-        float env = KenshiLighting.EnvironmentFactor(lightDir) * AmbientFor(sun.Y) * float.Lerp(1, StormAmbient, _builtStorm);
+        float day = Math.Clamp((sun.Y - StormNightBelow) / (StormDayAbove - StormNightBelow), 0, 1);
+        float stormAmbient = float.Lerp(1, float.Lerp(StormNightAmbient, StormAmbient, day), _builtStorm);
+        float env = KenshiLighting.EnvironmentFactor(lightDir) * AmbientFor(sun.Y) * stormAmbient;
         float reference = Meitou.Data.World.Planetshine.Luminance(KenshiLighting.SunLight(Vector3.UnitY));
         var planet = SkyNightLight.ApplyPlanetshine(Planetshine, PlanetAlbedo, PlanetshineStrength, sun, lightDir, sunLight, reference);
-        float stormSun = float.Lerp(1, StormSunLight, _builtStorm);
+        float stormSun = float.Lerp(1, float.Lerp(StormNightLight, StormSunLight, day), _builtStorm);
         planet = planet with { SunLight = planet.SunLight * stormSun, GlintColour = planet.GlintColour * stormSun };
         var night = SkyNightLight.NightAirAt(NightAir, PlanetAlbedo, PlanetshineStrength, sun, reference);
         var (cloudKeyDirection, cloudKey) = MeitouClouds.Key(sun, SkyPlanet.All[0].Towards, planet.CloudPlanet);
