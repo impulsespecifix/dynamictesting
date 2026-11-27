@@ -38,6 +38,13 @@ sealed class RainSplashes(GameHost host)
     const float ReferenceRadius = 350;
 
     /// <summary>
+    /// The eye's distance from its target past which the splashes grow, and how fast: their size times (distance / <see cref="GrowthFrom"/>) to
+    /// this power, so on screen they still shrink with the distance, only more slowly (1.76 times at a boom of 2000). Grown in full (power 1,
+    /// five times) they stayed the same on screen, too big far off; not grown at all, too small (owner).
+    /// </summary>
+    const float GrowthFrom = 400, GrowthPower = 0.35f;
+
+    /// <summary>
     /// The disc's radius per unit of the eye's distance from its target. The disc is centred halfway between the target and the ground under the
     /// eye, so it reaches from the camera's feet to its target: round the target alone, none fell close to the camera (owner).
     /// </summary>
@@ -147,11 +154,10 @@ sealed class RainSplashes(GameHost host)
     }
 
     /// <summary>
-    /// The disc for an eye's distance from its target: its radius and the rate's factor (against <see cref="ReferenceRadius"/>'s disc: by the
-    /// radius below it, by the area above). The splashes keep their size at any distance, so far off they are small, as the owner asked (they
-    /// had grown with the distance to stay a few pixels across).
+    /// The disc for an eye's distance from its target: its radius, the rate's factor (against <see cref="ReferenceRadius"/>'s disc: by the
+    /// radius below it, by the area above) and the splashes' size factor (<see cref="GrowthPower"/>).
     /// </summary>
-    readonly record struct Disc(float Radius, float Area);
+    readonly record struct Disc(float Radius, float Area, float Scale);
 
     /// <summary>
     /// The <see cref="Disc"/> for an eye <paramref name="distance"/> from its target.
@@ -161,7 +167,8 @@ sealed class RainSplashes(GameHost host)
         float radius = Math.Clamp(distance * RadiusPerDistance, MinRadius, MaxRadius);
         float ratio = radius / ReferenceRadius;
         float area = ratio < 1 ? ratio : ratio * ratio;
-        return new Disc(radius, area);
+        float scale = MathF.Pow(Math.Max(1, distance / GrowthFrom), GrowthPower);
+        return new Disc(radius, area, scale);
     }
 
     /// <summary>
@@ -208,7 +215,7 @@ sealed class RainSplashes(GameHost host)
         var (at, water) = surface;
         if (host.ActiveObjects?.InteriorAt(at + new Vector3(0, HullTestHeight, 0)) is not null) return;
 
-        float size = water ? WaterSize : GroundSize, life = water ? WaterLife : GroundLife;
+        float size = (water ? WaterSize : GroundSize) * disc.Scale, life = water ? WaterLife : GroundLife;
         particles.Burst(System, at, Quaternion.Identity, EmitSeconds, size, life, Grey);
     }
 }
