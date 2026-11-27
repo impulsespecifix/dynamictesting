@@ -54,19 +54,19 @@ sealed class RainSplashes(GameHost host)
     const float MaxEyeDistance = 6000;
 
     /// <summary>
-    /// A splash's size and life against the foot splash's, on the ground and on the water, up to <see cref="TrueSizeDistance"/>: a sixth of a foot
+    /// A splash's size and life against the foot splash's, on the ground and on the water, up to <see cref="TrueSizeDistance"/>: an eighth of a foot
     /// splash, as the owner asked after seeing them in the game (a drop's true size, a tenth, was under a pixel at the game's camera distances;
     /// **Observed**, test runs at a boom of 500, 1500 and 2000).
     /// </summary>
-    const float GroundSize = 0.175f, WaterSize = 0.25f, GroundLife = 1, WaterLife = 1;
+    const float GroundSize = 0.12f, WaterSize = 0.17f, GroundLife = 1, WaterLife = 1;
 
     /// <summary>
     /// The grey the splashes take in place of the crown textures' white (a burst's recolour) in full daylight: between the rain streaks' colour
     /// (0.32, <c>kenshi_rain1</c> and <c>Kenshi_Heavy_Rain</c>), which left the faint, small crowns unseen, and 2, which the owner found too far
-    /// from the rain's; 1.6 with a quarter of the night's dimming read too noticeable, and the owner chose this look back (**Observed**, night test
+    /// from the rain's; 1.6 with a quarter of the night's dimming read too noticeable, 1.2 still too white (**Observed**, night test
     /// runs at a boom of 1500: at 0.6 and 1 barely a dot, at 2 small grey crowns).
     /// </summary>
-    const float RainGrey = 1.2f;
+    const float RainGrey = 0.9f;
 
     /// <summary>
     /// How much of the sprites' ambient (the rain's dimming at dusk and night, 0.1..1) the grey takes: some, so they dim with the rain but stay
