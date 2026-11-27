@@ -1,165 +1,74 @@
 using System.Numerics;
-using Meitou.Data.World;
 
 namespace Meitou.Game.Rendering.Sky;
 
 /// <summary>
-/// Meitou's rain under the cloud (docs/render-clouds.md "Rain under the cloud"; testing only): while it rains the volume's cover is held at
-/// <see cref="CoverFloor"/> at least (most of the sky closes, gaps stay), and the rain falls only as far as the volume has cloud over the camera
-/// and in the sky on screen (<see cref="UnderCloud"/>, which scales the camera rain's particles and the rain's sound). A storm's closed deck rains everywhere. Visual and
-/// sound only: the simulation's weather (wetness, rain collectors, farms) is the scheduler's.
+/// Meitou's cloud for the rain (docs/render-clouds.md "Cloud for the rain"; testing only): the game's camera rain falls round the camera wherever it
+/// is, so while it rains the cloud comes to the rain. The volume's coverage is held at <see cref="CoverFloor"/> at least (most of the sky closes,
+/// gaps stay in the distance), and a canopy of full cover is drawn round the camera's column (<see cref="Canopy"/>): solid from overhead down to
+/// <see cref="FullElevation"/> above the horizon, fading out by <see cref="EdgeElevation"/>, so the sky the rain falls from is never clear. Both
+/// come in over <see cref="InSeconds"/> as the rain starts and go as it ends. The rain itself is the game's, everywhere.
 /// </summary>
 public sealed class CloudRain
 {
     /// <summary>
-    /// The least coverage while it rains: about 80 % of the sky has cloud (cover above 0.05), 76 % a thick one (above 0.4).
+    /// The least coverage while it rains: about 80 % of the sky away from the canopy has cloud.
     /// </summary>
     const float CoverFloor = 0.7f;
 
     /// <summary>
-    /// The seconds the floor takes to come in or go when the rain starts or ends.
+    /// The seconds the floor and the canopy take to come in or go when the rain starts or ends.
     /// </summary>
-    const float FloorSeconds = 10;
+    const float InSeconds = 10;
 
     /// <summary>
-    /// The time constant (seconds) of <see cref="UnderCloud"/>'s smoothing: a gap drifting over, or the camera moving, fades the rain out and in.
+    /// The elevation (degrees above the horizon) down to which the canopy is full cover, and the one where it has faded out: its radii are the
+    /// cloud base's height over the eye divided by their tangents.
     /// </summary>
-    const float FollowSeconds = 3;
+    const float FullElevation = 40, EdgeElevation = 20;
 
     /// <summary>
-    /// The mean cover (<see cref="CloudCover.At"/>) the rain starts at and the one it is full at: broken cloud lets little through.
+    /// The least height of the cloud base over the eye the radii are made from (an eye at or above the base still gets a canopy).
     /// </summary>
-    const float RainFrom = 0.55f, RainFull = 0.9f;
+    const float MinHeight = 4000;
 
     /// <summary>
-    /// The screen positions (each axis, -1..1 edge to edge) of the rays cast through the view to the cloud base: a 5 × 5 grid.
+    /// How far the floor and the canopy are in (0..1).
     /// </summary>
-    static readonly float[] ScreenSteps = [-0.9f, -0.45f, 0, 0.45f, 0.9f];
+    float _in;
 
     /// <summary>
-    /// The least upward slope (y of the unit ray) a ray needs to count as seeing the sky (lower ones hit the haze at the horizon); a ray must also
-    /// meet the cloud base within the clouds' reach (<see cref="VolumetricClouds.MaxDistance"/>).
-    /// </summary>
-    const float MinRaySlope = 0.03f;
-
-    /// <summary>
-    /// The weight of the cloud straight over the camera against each ray that sees the sky; with no sky in view it decides alone.
-    /// </summary>
-    const float OverheadWeight = 2;
-
-    /// <summary>
-    /// The CPU copy of the volume's cover; made with the first rain.
-    /// </summary>
-    CloudCover? _cover;
-
-    /// <summary>
-    /// How far the floor is in (0..1).
-    /// </summary>
-    float _floor;
-
-    /// <summary>
-    /// <see cref="UnderCloud"/> now; -1 before the first update (it snaps).
-    /// </summary>
-    float _underCloud = -1;
-
-    /// <summary>
-    /// When the last update ran (<see cref="System.Diagnostics.Stopwatch"/> ticks; 0: never).
+    /// When the last update ran (<see cref="System.Diagnostics.Stopwatch"/> ticks; 0: never, the first update snaps).
     /// </summary>
     long _ticks;
 
     /// <summary>
-    /// The last reading (for the <c>cloud-rain</c> console command): the cover over the eye, the mean cover where the screen's rays that see the
-    /// sky meet the cloud base (NaN with none), how many did, and the rain it gave before the smoothing.
-    /// </summary>
-    public (float Overhead, float Screen, int SkyRays, float Target) Last { get; private set; }
-
-    /// <summary>
     /// The least coverage the volume is drawn with now (0 without rain).
     /// </summary>
-    public float Floor => CoverFloor * _floor;
+    public float Floor => CoverFloor * _in;
 
     /// <summary>
-    /// How much of the rain falls at the camera (0..1): the cloud over it and on screen, smoothed; 1 without the volume (the game's rain, everywhere).
+    /// The canopy for the shader (<c>uRainCanopy</c>): its strength (0..1), the radius round the eye's column it is full within and the one it ends
+    /// at; set by <see cref="Update"/>.
     /// </summary>
-    public float UnderCloud => Math.Max(_underCloud, 0);
+    public Vector3 Canopy { get; private set; }
 
     /// <summary>
-    /// Once a frame, after the weather: moves the floor towards <paramref name="raining"/>, then (when <paramref name="volume"/> is drawn) reads the
-    /// cover over the eye and in the sky on screen (<paramref name="view"/>), at the cloud base <paramref name="cloudBase"/>, the sky's
-    /// <paramref name="coverage"/> (raised to the floor) and wind <paramref name="shift"/>.
+    /// Once a frame, after the weather: moves the floor and the canopy towards <paramref name="raining"/> and sizes the canopy for an eye at
+    /// <paramref name="eyeHeight"/> under a cloud base at <paramref name="cloudBase"/>.
     /// </summary>
-    public void Update(bool raining, in RainView view, float cloudBase, float coverage, Vector2 shift, bool volume)
+    public void Update(bool raining, float eyeHeight, float cloudBase)
     {
         long now = System.Diagnostics.Stopwatch.GetTimestamp();
         float seconds = _ticks == 0 ? float.PositiveInfinity : (float)System.Diagnostics.Stopwatch.GetElapsedTime(_ticks, now).TotalSeconds;
         _ticks = now;
 
-        float step = seconds / FloorSeconds;
-        _floor += Math.Clamp((raining ? 1 : 0) - _floor, -step, step);
+        float step = seconds / InSeconds;
+        _in += Math.Clamp((raining ? 1 : 0) - _in, -step, step);
 
-        var sky = new SkyLook(view, cloudBase, Math.Max(coverage, Floor), shift);
-        float target = volume && raining ? Rain(sky) : 1;
-        float follow = 1 - MathF.Exp(-seconds / FollowSeconds);
-        _underCloud = _underCloud < 0 ? target : _underCloud + ((target - _underCloud) * follow);
+        float height = Math.Max(cloudBase - eyeHeight, MinHeight);
+        float full = height / MathF.Tan(FullElevation * MathF.PI / 180);
+        float edge = height / MathF.Tan(EdgeElevation * MathF.PI / 180);
+        Canopy = new Vector3(_in, full, edge);
     }
-
-    /// <summary>
-    /// Where the cloud is read: the view, the cloud base and the volume's coverage and wind shift.
-    /// </summary>
-    readonly record struct SkyLook(RainView View, float Base, float Coverage, Vector2 Shift);
-
-    /// <summary>
-    /// The rain the cloud lets fall: the mean cover over the eye (weighed <see cref="OverheadWeight"/>) and where the screen's rays that see the
-    /// sky meet the cloud base, from none at <see cref="RainFrom"/> to all at <see cref="RainFull"/> (smooth). It follows the sky on screen, so
-    /// a gap in view stops the rain even with cloud overhead, and looking up into a gap too.
-    /// </summary>
-    float Rain(in SkyLook sky)
-    {
-        _cover ??= new CloudCover();
-        var eye = sky.View.Eye;
-        float overhead = _cover.At(eye.X, eye.Z, sky.Coverage, sky.Shift);
-        float screen = 0;
-        int rays = 0;
-        float height = Math.Max(sky.Base - eye.Y, 1000);
-        foreach (float sy in ScreenSteps)
-            foreach (float sx in ScreenSteps)
-            {
-                var ray = sky.View.Ray(sx, sy);
-                float reach = height / Math.Max(ray.Y, 1e-6f);
-                if (ray.Y < MinRaySlope || reach > VolumetricClouds.MaxDistance) continue;
-
-                var at = eye + (ray * reach);
-                screen += _cover.At(at.X, at.Z, sky.Coverage, sky.Shift);
-                rays++;
-            }
-
-        float mean = ((OverheadWeight * overhead) + screen) / (OverheadWeight + rays);
-        float t = Math.Clamp((mean - RainFrom) / (RainFull - RainFrom), 0, 1);
-        float rain = t * t * (3 - (2 * t));
-        Last = (overhead, rays > 0 ? screen / rays : float.NaN, rays, rain);
-        return rain;
-    }
-}
-
-/// <summary>
-/// The camera as <see cref="CloudRain"/> reads the sky: the eye, the view's axes and the half-extents of the screen (tangents of the half angles).
-/// </summary>
-public readonly record struct RainView(Vector3 Eye, Vector3 Forward, Vector3 Right, Vector3 Up, float TanX, float TanY)
-{
-    /// <summary>
-    /// The view of a view matrix (System.Numerics, row vectors: its columns hold the axes) with a vertical field of view and an aspect.
-    /// </summary>
-    public static RainView Of(Vector3 eye, Matrix4x4 view, float fieldOfView, float aspect)
-    {
-        var right = new Vector3(view.M11, view.M21, view.M31);
-        var up = new Vector3(view.M12, view.M22, view.M32);
-        var back = new Vector3(view.M13, view.M23, view.M33);
-        float tanY = MathF.Tan(fieldOfView / 2);
-        return new RainView(eye, -back, right, up, tanY * aspect, tanY);
-    }
-
-    /// <summary>
-    /// The unit ray through screen position (<paramref name="x"/>, <paramref name="y"/>), each -1..1 edge to edge.
-    /// </summary>
-    public Vector3 Ray(float x, float y) => Vector3.Normalize(Forward + (Right * (x * TanX)) + (Up * (y * TanY)));
 }

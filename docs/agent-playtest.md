@@ -105,7 +105,6 @@ c help                                # one usage line per command; `c help <nam
 | `spawn-trace` | `spawn-trace on\|off\|clear\|summary\|dump <tsv path>` (every squad the population makes: source, template, leader record, position, terrain height, water depth, walkability, distance to the nearest player character) |
 | `birds` | `birds [near <m>]` (per bird kind: alive, near the camera, the spawn rule's cell sum, listing cells, distance, flock size) |
 | `weather-sim` | `weather-sim <none|dust|acid|off>` (the weather the simulation reads everywhere; the sky keeps its own) |
-| `cloud-rain` | `cloud-rain` (the rain under the cloud: how much falls at the camera, the cover over the eye and on screen, the coverage floor; [render-clouds](render-clouds.md#rain-under-the-cloud)) |
 | `flies` | `flies` (each dead character: flies, effect shown, the weather there) |
 | `ko` | `ko [seconds] [--id <c:slot.gen>]` |
 | `look` | `look <x> <z> \| look off [--id <c:slot.gen>] \| look talk <c:slot.gen> \| look list` (debug head turning: a forced look point, not hashed; `talk` gives the selected character the Talk order; `list` the published look points) |

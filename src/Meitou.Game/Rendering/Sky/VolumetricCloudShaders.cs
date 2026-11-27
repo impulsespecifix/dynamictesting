@@ -22,6 +22,7 @@ public static class VolumetricCloudShaders
         uniform vec3 uEye;
         uniform vec2 uCloudSlab; // the march volume's base and top (the cloud height setting; the top leaves room for towers)
         uniform float uCloudTime; // seconds, for the shape's slow evolution
+        uniform vec3 uRainCanopy; // the rain's canopy: strength 0..1, the radius it is full within, the radius it ends at (CloudRain)
         uniform vec2 uCloudShear; // the towers' downwind lean per unit of height (follows the wind's direction)
         const float CLOUD_EXTINCTION = {{F(Data.World.VolumetricClouds.Extinction)}};
         const float CLOUD_BASE_THICKNESS = {{F(Data.World.VolumetricClouds.Thickness)}};
@@ -86,16 +87,18 @@ public static class VolumetricCloudShaders
             p.y = cloudAlt(p);
             gColumnTop = CLOUD_BASE_THICKNESS;
             if (p.y <= uCloudSlab.x || p.y >= uCloudSlab.y || uVolume.x <= 0.0) return 0.0;
+            vec2 canopyAt = p.xz;
             // The original wind texture shift corresponds to six times the ground wind at this altitude.
             p.xz += uVolume.yz * CLOUD_PATTERN_PERIOD;
-            vec3 w3 = cloudNoise(vec3(p.x / CLOUD_PATTERN_PERIOD, {{F(Data.World.VolumetricClouds.WeatherSlice)}}, p.z / CLOUD_PATTERN_PERIOD));
+            vec3 w3 = cloudNoise(vec3(p.x / CLOUD_PATTERN_PERIOD, 0.37, p.z / CLOUD_PATTERN_PERIOD));
             float weather = w3.b;
             gColumnTop = cloudColumnTop(w3);
             float h = (p.y - uCloudSlab.x) / gColumnTop;
             if (h >= 1.0) return 0.0;
-            // CloudCover.At is this on the CPU (the rain under the cloud): keep the two together.
             float cover = smoothstep(0.85 - 0.75 * uVolume.x, 1.05 - 0.75 * uVolume.x, weather);
             cover = mix(cover, 1.0, smoothstep(0.75, 1.0, uVolume.x));
+            // The rain's canopy (CloudRain): full cover round the eye's column while it rains, so the sky over the rain is never clear.
+            cover = max(cover, uRainCanopy.x * (1.0 - smoothstep(uRainCanopy.y, uRainCanopy.z, length(canopyAt - uEye.xz))));
             // Where the weather leaves no cover the sky is clear and the shape is not read (docs/render-clouds.md).
             if (cover <= 0.0) return 0.0;
             p.xz -= uCloudShear * (p.y - uCloudSlab.x);

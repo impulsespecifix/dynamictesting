@@ -270,7 +270,7 @@ sealed class EffectGroupSet(ParticleLibrary library, EffectWorld world)
     }
 
     /// <summary>
-    /// Copies the renderer's shared world settings (heights, density, rain emission, active radius) onto a region's <see cref="EffectWorld"/>.
+    /// Copies the renderer's shared world settings (heights, density, active radius) onto a region's <see cref="EffectWorld"/>.
     /// </summary>
     EffectWorld SyncWorld(EffectWorld target)
     {
@@ -280,7 +280,6 @@ sealed class EffectGroupSet(ParticleLibrary library, EffectWorld world)
         target.FallbackRadius = world.FallbackRadius;
         target.GroundColour = world.GroundColour;
         target.Density = world.Density;
-        target.RainEmission = world.RainEmission;
         return target;
     }
 

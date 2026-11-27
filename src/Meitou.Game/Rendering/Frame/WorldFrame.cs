@@ -258,9 +258,6 @@ static partial class WorldFrame
             return;
         }
 
-        // Meitou: the camera rain falls where the volume has cloud over the camera (CloudRain).
-        if (gpu.Particles is { } existing) existing.World.RainEmission = gpu.Sky.Clouds.Rain.UnderCloud;
-
         if (weather.World.ForcedWeather is not null)
         {
             var forced = weather.EffectInput();

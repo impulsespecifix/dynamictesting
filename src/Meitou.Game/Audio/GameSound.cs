@@ -140,7 +140,6 @@ sealed class GameSound(GameHost host)
         var clock = host.Session.Clock;
         Audio.Ambience.FixDelayedSuffix = host.Config.FixAmbienceSuffix;
         Audio.Ambience.FixWindStop = host.Config.FixWindStop;
-        Audio.RainUnderCloud = host.Gpu?.Sky.Clouds.Rain.UnderCloud ?? 1;
         Audio.Update(weather?.World.RegionAt(target.X, target.Z), weather?.State, clock.HourOfDay, clock.Sunrise, clock.Sunset,
             eye.Y - host.ActiveGround(eye.X, eye.Z), realSeconds);
         World.Update(Audio, ears == eye ? target : ears, ears);

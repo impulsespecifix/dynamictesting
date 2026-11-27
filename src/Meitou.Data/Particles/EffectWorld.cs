@@ -30,7 +30,6 @@ public sealed class EffectWorld
         FallbackRadius = FallbackRadius,
         GroundColour = GroundColour,
         Density = Density,
-        RainEmission = RainEmission,
     };
     /// <summary>
     /// Null: a disc round the camera of <see cref="FallbackRadius"/>.
@@ -55,11 +54,6 @@ public sealed class EffectWorld
     /// are drawn (a storm gets thinner, not cheaper per particle).
     /// </summary>
     public float Density { get; set; } = 1;
-    /// <summary>
-    /// Meitou's rain under the cloud (docs/render-clouds.md "Rain under the cloud"): multiplies the emission of the camera rain effects
-    /// (<c>CAMERA_RAIN</c>, <c>CAMERA_ACID_RAIN</c>) by the cloud over the camera; 1 is the game's rain, everywhere.
-    /// </summary>
-    public float RainEmission { get; set; } = 1;
 
     /// <summary>
     /// The y of the terrain normal at a point, by finite differences of the height (the game's own terrain query returns the normal).

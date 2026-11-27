@@ -23,26 +23,19 @@ four key-light samples, forward/back lobes and approximate multiple scattering. 
 and sky ambient feed HDR; source ceiling8, haze scale65000. Premultiplied colour/opacity composites
 over atmosphere/stars/planets before weather fog, with geometry drawn over the sky.
 
-## Rain under the cloud
+## Cloud for the rain
 
-Meitou (engine choice, testing only; `CloudRain`): the game's camera rain (`CAMERA_RAIN`, `CAMERA_ACID_RAIN`: `rain_light`, `Kenshi_Heavy_Rain`, the
-red and black rains) falls round the camera wherever it is in the region, so it can fall from a gap. While the rain level is above 0 the
-coverage is held at 0.7 at least (in over 10 s, out as long), which leaves about 80 % of the sky with cloud (cover > 0.05; 76 % above 0.4,
-**Observed**, a 200 × 200 grid of `CloudCover` samples). The storm (`SkyClouds.Storm`: the closed, darkened deck without towers) is for the
-storm weathers alone (`rain intensity` ≥ 60), in and out over 20 s; light rain keeps its cloud shapes and the fair-weather light. The rain then falls as the
-cloud over the camera and on screen allows: the mean of the cover straight over the eye (weight 2) and of the cover where each of 25 rays
-through the screen (a 5 × 5 grid) meets the cloud base, for the rays that rise at least 0.03 and meet it within 500 000 units (weight 1 each;
-with none, the cover overhead alone), 0 at 0.55 to 1 at 0.9 (smoothstep: broken cloud lets little through; a gap on screen, looking up
-into it included, stops the rain even with cloud overhead), smoothed over 3 s, scales the camera rain's emission (`EffectWorld.RainEmission`) and the rain's sound (`AmbienceInput.RainWithheld`).
-The dev console's `cloud-rain` prints the reading. Without the volume (clouds off, the game's flat layer) the rain falls everywhere. The simulation's weather (wetness, rain collectors, farms)
-is unchanged.
+Meitou (engine choice, testing only; `CloudRain`): the game's camera rain (`CAMERA_RAIN`, `CAMERA_ACID_RAIN`) falls round the camera wherever it
+is in the region, so the cloud comes to the rain. While the rain level is above 0 the coverage is held at 0.7 at least (about 80 % of the sky
+with cloud, **Observed**, a 200 × 200 grid of CPU samples of the shader's cover), and a canopy of full cover is drawn round the eye's column
+(`uRainCanopy`, after the weather's cover in `cloudDensityAt`): full within the radius at which the cloud base is 40° above the horizon, fading
+out by 20° (radii from the base's height over the eye, at least 4000), so the sky over the rain is never clear and gaps show only towards the
+horizon. Both come in over 10 s as the rain starts and go as it ends; the shadow map sees the canopy too. The storm (`SkyClouds.Storm`: the
+closed, darkened deck without towers) is for the storm weathers alone (`rain intensity` ≥ 60), in and out over 20 s; light rain keeps its cloud
+shapes and the fair-weather light. The rain, its sound and the simulation's weather are the game's.
 
 The rain sheets (pale veils under the deck, `RainSheets`) are for the storm weathers alone (`rain intensity` ≥ 60: `Heavy_Rain`,
 `misty rain`), coming and going over 20 s with the weather; light rain has none (`SkyClouds.RainSheets`).
-
-`CloudCover` is the shader's cover on the CPU: the fine atlas' blue channel at y `VolumetricClouds.WeatherSlice` (0.37), as its bytes,
-trilinear, and the same curve; **Verified** against a shader-style sample of the atlas itself (20 000 random places, shifts and coverages,
-largest difference 0). The shader and `CloudCover.At` must change together.
 
 ## Temporal, fog and shadows
 

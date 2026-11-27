@@ -112,12 +112,6 @@ public sealed class AudioSystem : IDisposable
     public string DeviceName => _output.DeviceName;
 
     /// <summary>
-    /// Meitou's rain under the cloud: how much of the rain falls at the camera (0..1, the cloud over it; 1, the default, the game's rain everywhere),
-    /// which the rain's sound follows; set by the host each frame before <see cref="Update"/>.
-    /// </summary>
-    public float RainUnderCloud { get; set; } = 1;
-
-    /// <summary>
     /// The options last applied (<see cref="Apply"/>).
     /// </summary>
     public AudioSettings Settings { get; private set; }
@@ -229,7 +223,6 @@ public sealed class AudioSystem : IDisposable
             Wind = weather is null ? 0 : weather.Weather.WindIntensity * weather.WindSpeed * 0.01f,
             RealSeconds = realSeconds,
             Storm = weather is not null && weather.Weather.RainIntensity >= VolumetricClouds.StormWeatherRain ? 1 : 0,
-            RainWithheld = 1 - Math.Clamp(RainUnderCloud, 0, 1),
         });
         Music.Update(region?.Def.Music, Ambience.LoadPending);
         Ambience.UnloadStale(Music.LoadPending);
@@ -243,10 +236,9 @@ public sealed class AudioSystem : IDisposable
     {
         string music = MusicState();
         string biome = Ambience.Biome is { } heard ? $"{heard} {(Ambience.Night ? "night" : "day")}" : "no biome";
-        string cloud = RainUnderCloud < 0.995f ? $" {RainUnderCloud * 100:0} % under cloud" : "";
         string rain = !Ambience.Raining ? ""
-            : Ambience.RecordedRain ? $", rain (recorded){cloud}"
-            : $", rain{cloud}";
+            : Ambience.RecordedRain ? ", rain (recorded)"
+            : ", rain";
         string flags = $"{rain}{(Ambience.Windy ? ", wind" : "")}{(_paused ? ", paused" : "")}";
         string capped = Player.Silenced > 0 ? $" ({Player.Silenced} capped)" : "";
         string musicHeard = Music.TitleScreen ? "main theme" : Music.Biome ?? "none";

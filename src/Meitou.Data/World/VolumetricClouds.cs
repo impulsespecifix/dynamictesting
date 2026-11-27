@@ -41,11 +41,6 @@ public static class VolumetricClouds
         return t * t * (3 - 2 * t);
     }
     /// <summary>
-    /// The fine atlas' y at which the cloud shader reads the weather pattern (its blue channel) for the cover (<see cref="CloudCover"/>).
-    /// </summary>
-    public const float WeatherSlice = 0.37f;
-
-    /// <summary>
     /// The world sizes over which the pattern, shape and detail noises repeat.
     /// </summary>
     public const float PatternPeriod = 120000, ShapePeriod = 40000, DetailPeriod = 10000;

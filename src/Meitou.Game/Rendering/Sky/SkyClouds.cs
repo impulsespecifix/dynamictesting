@@ -130,11 +130,9 @@ public sealed class SkyClouds : IDisposable
     float StormCoverage(CloudSlab slab) => float.Lerp(slab.Density, 1, Heavy);
 
     /// <summary>
-    /// Once a frame after <see cref="SetRain"/>: the rain's floor and the cloud over the eye and on screen (<paramref name="view"/>;
-    /// <paramref name="volume"/>: the volume is drawn).
+    /// Once a frame after <see cref="SetRain"/>: the rain's floor and canopy for an eye at <paramref name="eyeHeight"/>.
     /// </summary>
-    internal void UpdateRain(in RainView view, CloudSlab slab, bool volume) =>
-        Rain.Update(RainAmount > 0, view, slab.Bottom, StormCoverage(slab), slab.Shift, volume);
+    internal void UpdateRain(float eyeHeight, CloudSlab slab) => Rain.Update(RainAmount > 0, eyeHeight, slab.Bottom);
 
     /// <summary>
     /// This frame's rain sheets, or null: no volume, the main view not marched lately, or not a storm weather (light rain has none, however heavy).
@@ -219,6 +217,7 @@ public sealed class SkyClouds : IDisposable
         _volume ??= new VolumetricCloudRenderer(_gpu);
         _volume.Bottom = slab.Bottom;
         _volume.Storm = Heavy;
+        _volume.Canopy = Rain.Canopy;
         _volume.RenderShadow(eye, Coverage(slab), slab.Shift, sun);
         _volumeShadowsReady = true;
     }
@@ -256,6 +255,7 @@ public sealed class SkyClouds : IDisposable
         _volume ??= new VolumetricCloudRenderer(_gpu);
         _volume.Bottom = slab.Bottom;
         _volume.Storm = Heavy;
+        _volume.Canopy = Rain.Canopy;
         float coverage = Coverage(slab);
         var ambient = s.CloudAmbient;
         float grey = MeitouClouds.AmbientGreyAt(coverage);
