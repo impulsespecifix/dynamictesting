@@ -123,9 +123,10 @@ sealed class RainSplashes(GameHost host)
         """;
 
     /// <summary>
-    /// Splashes a second per point of rain level (0..100): 1000 a second in a full storm, 400 in full light rain (up to <see cref="MaxPerSecond"/>).
+    /// Splashes a second per point of rain level (0..100): 4000 a second in a full storm, 1600 in full light rain (up to <see cref="MaxPerSecond"/>;
+    /// four times the first long-range count, at the owner's word).
     /// </summary>
-    const float PerRain = 10;
+    const float PerRain = 40;
 
     /// <summary>
     /// How far out the drops land: the eye's distance from its target times <see cref="RangePerDistance"/>, within these (150 to 800 m; at ground
@@ -156,11 +157,11 @@ sealed class RainSplashes(GameHost host)
     const float MaxEyeDistance = 6000;
 
     /// <summary>
-    /// A splash's size and life against the foot splash's, on the ground and on the water: a quarter of a foot splash (a drop's true size, a
+    /// A splash's size against the foot splash's, on the ground and on the water: a quarter of a foot splash (a drop's true size, a
     /// tenth, was under a pixel at the game's camera distances; **Observed**, test runs at a boom of 500, 1500 and 2000). The owner chose this
     /// look back (f7d78ce48's) after trying smaller and dimmer ones.
     /// </summary>
-    const float GroundSize = 0.25f, WaterSize = 0.35f, GroundLife = 1, WaterLife = 1;
+    const float GroundSize = 0.25f, WaterSize = 0.35f;
 
     /// <summary>
     /// The colour the splashes take in place of the crown textures' white (a burst's recolour): a cool grey, the same by day and night (the
@@ -169,19 +170,14 @@ sealed class RainSplashes(GameHost host)
     static readonly Vector3 Grey = new(0.5225f, 0.5415f, 0.57f);
 
     /// <summary>
-    /// The seconds a splash's unit emits (its emitters run 0.2 to 0.5 s and stop).
-    /// </summary>
-    const float EmitSeconds = 0.5f;
-
-    /// <summary>
     /// The most splashes started in one frame (a stall does not throw a crowd at once).
     /// </summary>
-    const int MaxPerFrame = 40;
+    const int MaxPerFrame = 160;
 
     /// <summary>
     /// The most splashes a second (each is a particle unit of its own).
     /// </summary>
-    const float MaxPerSecond = 1200;
+    const float MaxPerSecond = 4800;
 
     /// <summary>
     /// The longest frame step the spawn clock takes, seconds.
@@ -199,6 +195,11 @@ sealed class RainSplashes(GameHost host)
     readonly RainCover _cover = new();
 
     /// <summary>
+    /// The live splashes, animated here and drawn in one batch per technique.
+    /// </summary>
+    readonly SplashSprites _sprites = new();
+
+    /// <summary>
     /// The splashes owed but not yet started (the fraction carried from frame to frame).
     /// </summary>
     float _owed;
@@ -214,11 +215,21 @@ sealed class RainSplashes(GameHost host)
     bool _prepared;
 
     /// <summary>
-    /// Once a frame: starts the splashes the rain at the camera owes since the last frame.
+    /// Once a frame: ages the live splashes, starts those the rain at the camera owes since the last frame and hands the renderer their sprites.
     /// </summary>
     internal void Update(ParticleRenderer particles)
     {
         float seconds = Step();
+        _sprites.Advance(seconds);
+        Spawn(particles, seconds);
+        _sprites.Fill(particles.Sprites);
+    }
+
+    /// <summary>
+    /// Starts the splashes the rain at the camera owes since the last frame (none without rain or with the camera far off).
+    /// </summary>
+    void Spawn(ParticleRenderer particles, float seconds)
+    {
         float rain = host.ActiveWeather?.State.Rain ?? 0;
         var target = host.Camera.Target;
         float distance = Vector3.Distance(host.Camera.Eye, target);
@@ -240,8 +251,8 @@ sealed class RainSplashes(GameHost host)
     }
 
     /// <summary>
-    /// Adds <see cref="WaterScript"/> to the particle library (once a renderer) and makes both splash systems' burst groups, so their textures
-    /// start decoding.
+    /// Adds <see cref="WaterScript"/> to the particle library (once a renderer) and makes both splash systems' burst groups (never played), so
+    /// their textures start decoding.
     /// </summary>
     void Prepare(ParticleRenderer particles)
     {
@@ -315,7 +326,7 @@ sealed class RainSplashes(GameHost host)
         if (host.ActiveObjects?.InteriorAt(at + new Vector3(0, HullTestHeight, 0)) is not null) return;
 
         float growth = MathF.Pow(Math.Max(1, Vector3.Distance(fan.Eye, at) / GrowthFrom), GrowthPower);
-        float size = (water ? WaterSize : GroundSize) * growth, life = water ? WaterLife : GroundLife;
-        particles.Burst(water ? WaterSystem : System, at, Quaternion.Identity, EmitSeconds, size, life, Grey);
+        float size = (water ? WaterSize : GroundSize) * growth;
+        _sprites.Add(particles.Library, water ? WaterSystem : System, at, size, Grey);
     }
 }

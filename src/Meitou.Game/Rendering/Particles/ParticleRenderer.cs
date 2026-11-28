@@ -519,6 +519,14 @@ public sealed unsafe class ParticleRenderer : IDisposable
     internal List<Modding.TrailQuad> Ribbons { get; } = [];
 
     /// <summary>
+    /// Sprites an effect animates itself instead of simulating a unit each (Meitou's raindrop splashes, <see cref="Effects.RainSplashes"/>), which
+    /// the host fills every frame: each a technique of a loaded system (its material and billboard) and a particle in world space, those of one
+    /// technique next to each other; drawn after the effects, one draw per run of a technique. A burst unit per splash cost a draw per technique
+    /// each (thousands of draws a second in a storm).
+    /// </summary>
+    internal List<(PuTechniqueDef Technique, ParticleInstance Particle)> Sprites { get; } = [];
+
+    /// <summary>
     /// One technique's draw: its instances in the frame's constants, its material, texture and target size.
     /// </summary>
     struct DrawItem
@@ -1060,7 +1068,9 @@ public sealed unsafe class ParticleRenderer : IDisposable
         _drawnParticles = 0;
         _drawnUnits = 0;
         _coveragePending = false;
-        if (!Enabled || (_groups.WeatherGroups.Count == 0 && _groups.Placers.Count == 0 && Tracers.Count == 0 && Ribbons.Count == 0)) return;
+        if (!Enabled || (_groups.WeatherGroups.Count == 0 && _groups.Placers.Count == 0 && Tracers.Count == 0 && Ribbons.Count == 0
+                && Sprites.Count == 0))
+            return;
         _draws.Clear();
         var frame = _gpu.Frame;
         var forward = -new Vector3(view.M13, view.M23, view.M33);   // the view's -Z axis in the world
@@ -1118,6 +1128,7 @@ public sealed unsafe class ParticleRenderer : IDisposable
             }
         }
         if (Tracers.Count > 0) AddTracers(frame, eye, forward, nearPlane);
+        if (Sprites.Count > 0) AddSprites(frame, eye, forward, nearPlane);
         if (Ribbons.Count > 0) AddRibbons(frame, eye, forward, nearPlane);
 
         // A size is worth its two extra passes (the depth reduction, the composite) only when it saves enough fill: it is taken up from MinLayers and
@@ -1239,6 +1250,47 @@ public sealed unsafe class ParticleRenderer : IDisposable
         _scratch.AsSpan(0, n).CopyTo(new Span<ParticleInstance>(instances.Pointer, n));
         _draws.Add(new DrawItem { Instances = instances, Count = n, Close = close, Technique = TracerTechnique, Material = TracerMaterial,
             Texture = _tracerTexture, Divisor = 1, Tracer = true });
+        _drawnParticles += n;
+    }
+
+    /// <summary>
+    /// The <see cref="Sprites"/>: one draw per run of a technique, its positions made eye-relative; a technique whose material or texture is not
+    /// there yet is left out of the frame.
+    /// </summary>
+    void AddSprites(IGpuFrame frame, Vector3 eye, Vector3 forward, float nearPlane)
+    {
+        int start = 0;
+        while (start < Sprites.Count)
+        {
+            var technique = Sprites[start].Technique;
+            int end = start + 1;
+            while (end < Sprites.Count && ReferenceEquals(Sprites[end].Technique, technique)) end++;
+            AddSpriteRun(frame, eye, forward, nearPlane, technique, start, end);
+            start = end;
+        }
+    }
+
+    /// <summary>
+    /// One run of <see cref="Sprites"/> (<paramref name="start"/> to <paramref name="end"/>) of <paramref name="technique"/> as one draw.
+    /// </summary>
+    void AddSpriteRun(IGpuFrame frame, Vector3 eye, Vector3 forward, float nearPlane, PuTechniqueDef technique, int start, int end)
+    {
+        var material = Library.FindMaterial(technique.Material);
+        if (material is null || TextureFor(material) is not { } texture) return;
+
+        int n = end - start;
+        if (_scratch.Length < n) _scratch = new ParticleInstance[Math.Max(n, _scratch.Length * 2)];
+        for (int i = 0; i < n; i++)
+        {
+            _scratch[i] = Sprites[start + i].Particle;
+            _scratch[i].Position -= eye;
+        }
+
+        int close = _gpu is not GpuContext ? 0 : PartitionByDepth(_scratch.AsSpan(0, n), forward, nearPlane);
+        var instances = frame.AllocateConstants((ulong)(n * InstanceBytes), 16);
+        _scratch.AsSpan(0, n).CopyTo(new Span<ParticleInstance>(instances.Pointer, n));
+        _draws.Add(new DrawItem { Instances = instances, Count = n, Close = close, Technique = technique, Material = material, Texture = texture,
+            Divisor = 1 });
         _drawnParticles += n;
     }
 
