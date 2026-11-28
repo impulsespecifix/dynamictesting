@@ -309,8 +309,8 @@ The optional row "Rain drops and puddles" (`WeatherSurfaces.WetWorld`, `uWetWorl
   an overhang's top included. Trees and other foliage have no collision and give no cover.
 - Raindrop splashes (`RainSplashes`, testing only): while it rains at the camera, drops land at random in a fan from the ground under the eye within 80° of the camera's heading,
   out to three times the eye's distance from its target within 150 to 800 m (at ground level 150 m: the owner asked for a much longer range
-  than the few metres round the camera), uniform in distance so thicker near the camera; 40 a second per point of rain level (4000 at rain
-  100), at most 4800 a second and 160 a frame; each the game's `Footsplashes01` (the foot splash's three
+  than the few metres round the camera), uniform in distance so thicker near the camera; 20 a second per point of rain level (2000 at rain
+  100; 4000 was too many), at most 2400 a second and 80 a frame; each the game's `Footsplashes01` (the foot splash's three
   `Footsplash` crown billboards, additive and unlit as the game's rain) recoloured a cool grey (0.5225, 0.5415, 0.57: 5 % under 0.55, 0.57, 0.6, a touch too white) by day and night (the rain's own grey and its night dimming left them unseen; smaller and dimmer
   ones were tried and the owner chose this look back), at 0.25 of its size on the terrain; where the water (`WorldWater.Height`) is above the terrain, at 0.35, Meitou's own
   `meitou_rain_water_splash` instead (from the game's materials: a flat `Wade-base` foam ring on the water widening and fading over 0.6 s, a
