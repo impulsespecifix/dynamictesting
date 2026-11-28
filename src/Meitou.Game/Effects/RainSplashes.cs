@@ -123,10 +123,10 @@ sealed class RainSplashes(GameHost host)
         """;
 
     /// <summary>
-    /// Splashes a second per point of rain level (0..100): 2000 a second in a full storm, 800 in full light rain (up to <see cref="MaxPerSecond"/>;
-    /// twice the first long-range count, the owner's choice after trying four times).
+    /// Splashes a second per point of rain level (0..100): 4000 a second in a full storm, 1600 in full light rain (up to <see cref="MaxPerSecond"/>;
+    /// four times the first long-range count, at the owner's word, the splashes being drawn in batches).
     /// </summary>
-    const float PerRain = 20;
+    const float PerRain = 40;
 
     /// <summary>
     /// How far out the drops land: the eye's distance from its target times <see cref="RangePerDistance"/>, within these (150 to 800 m; at ground
@@ -172,12 +172,12 @@ sealed class RainSplashes(GameHost host)
     /// <summary>
     /// The most splashes started in one frame (a stall does not throw a crowd at once).
     /// </summary>
-    const int MaxPerFrame = 80;
+    const int MaxPerFrame = 160;
 
     /// <summary>
     /// The most splashes a second (each is a particle unit of its own).
     /// </summary>
-    const float MaxPerSecond = 2400;
+    const float MaxPerSecond = 4800;
 
     /// <summary>
     /// The longest frame step the spawn clock takes, seconds.
